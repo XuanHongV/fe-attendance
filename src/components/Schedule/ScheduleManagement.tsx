@@ -73,6 +73,7 @@ export const ScheduleManagement = () => {
 
   const { user } = useSelector((state: RootState) => state.auth);
   const isAdmin = user?.role === 'ADMIN' || user?.role === 'MANAGER';
+  console.log('user', user)
 
   const fetchData = async () => {
     if (!user?._id) return;
@@ -90,6 +91,7 @@ export const ScheduleManagement = () => {
       const response = await api.get(url);
       const data = response.data?.data || response.data || [];
       const activeAssignments = data.filter((item: any) => item.shift !== null);
+  
       setShifts(activeAssignments);
     } catch (err: any) {
       setError("Không thể tải dữ liệu lịch.");
@@ -112,6 +114,7 @@ export const ScheduleManagement = () => {
                  api.get('/shifts')
              ]);
              const rawUsers = Array.isArray(usersRes.data) ? usersRes.data : (usersRes.data?.data || []);
+             console.log('raw user', rawUsers)
              setAvailableEmployees(rawUsers.filter((u: any) => u.role === 'STAFF'));
              setAvailableShifts(shiftsRes.data);
           }
