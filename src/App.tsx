@@ -20,6 +20,11 @@ import { StaffShift } from './components/Staff/StaffShift';
 import { Timekeeping } from './components/Staff/Timekeeping';
 import { MyPayroll } from './components/Staff/MyPayroll';
 
+// Toast notifications
+import { ToastContainer } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
+import 'react-confirm-alert/src/react-confirm-alert.css';
+
 const PrivateLayout = () => {
   const { accessToken, user } = useSelector((state: RootState) => state.auth);
   const dispatch = useDispatch<AppDispatch>();
@@ -81,7 +86,9 @@ const PrivateLayout = () => {
 
 function App() {
   return (
-    <Routes>
+    <>
+      <ToastContainer position="top-right" autoClose={4000} />
+      <Routes>
       <Route path="/" element={<Navigate to="/login" replace />} />
       <Route path="/login" element={<Login />} />
       <Route path="/register" element={<Register />} />
@@ -108,6 +115,7 @@ function App() {
         </div>
       } />
     </Routes>
+    </>
   );
 }
 

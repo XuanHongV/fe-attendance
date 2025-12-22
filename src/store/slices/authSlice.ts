@@ -1,5 +1,6 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import api from '../../services/apiService';
+import { decodeAccessToken } from '../../utils/jwtHelper';
 
 interface User {
   _id: string;
@@ -82,6 +83,7 @@ export const loginUser = createAsyncThunk(
 
       if (token && user) {
         localStorage.setItem('accessToken', token);
+        decodeAccessToken(token)
         localStorage.setItem('user', JSON.stringify(user));
       }
 
