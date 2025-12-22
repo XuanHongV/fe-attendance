@@ -4,11 +4,12 @@ export interface Employee {
   email: string;
   role: 'ADMIN' | 'STAFF';
   status: 'active' | 'inactive';
-  department?: string;
+  department: string,
   position?: string;
   walletAddress?: string;
   avatar?: string;
   joinDate?: string;
+  company?: string
 }
 
 export interface Shift {
