@@ -1,8 +1,37 @@
 import React, { useState, useEffect, FormEvent } from 'react';
-import { Plus, Clock, Trash2, Edit, Save, X, Briefcase, Loader2 } from 'lucide-react';
-import { Shift } from '../../types';
+import { 
+  Plus, Clock, Trash2, Edit, Save, X, Briefcase, 
+  Loader2, Palette, Settings2, ShieldAlert, Timer, 
+  MapPin, ChevronDown 
+} from 'lucide-react';
 import api from '../../services/apiService';
 import toastService from '../../services/toastService';
+
+enum ShiftType {
+  PARTTIME = 'PARTTIME',
+  FULLTIME = 'FULLTIME',
+}
+
+interface Position {
+  _id: string;
+  name: string;
+}
+
+interface Shift {
+  _id: string;
+  name: string;
+  start_time: string;
+  end_time: string;
+  allowance: number;
+  color_code: string;
+  type: ShiftType;
+  position?: string | Position; 
+  check_allowed_time: number;
+  check_in_duration: number;
+  check_out_allowed_time: number;
+  standard_working_hours: number;
+  late_penalty_amount: number;
+}
 
 export const ShiftManagement = () => {
     const [shifts, setShifts] = useState<Shift[]>([]);

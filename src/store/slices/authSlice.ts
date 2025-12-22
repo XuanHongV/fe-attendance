@@ -79,6 +79,8 @@ export const loginUser = createAsyncThunk(
       const token = response.data.access_token || response.data.accessToken;
       const user = response.data.user;
 
+      console.log("Đăng nhập thành công, user:", user);
+
       if (token && user) {
         localStorage.setItem('accessToken', token);
         decodeAccessToken(token)

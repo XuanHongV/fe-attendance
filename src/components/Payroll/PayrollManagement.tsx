@@ -14,22 +14,20 @@ import {
 } from 'lucide-react';
 import api from '../../services/apiService';
 
-// Interface mapping với TimeSheetDetail Schema của Backend
 interface TimeSheetDetail {
   _id: string;
   user: {
     _id: string;
     fullName: string;
     position: string;
-    department: string;
     avatar?: string;
   };
   total_working_hours: number;
   total_present_days: number;
   total_late_minutes: number;
-  total_amount: number; // Lương thực lĩnh
+  total_amount: number;
   note?: string;
-  approved_at?: string; // Nếu có date => Đã duyệt
+  approved_at?: string; 
   createdAt: string;
 }
 
@@ -213,8 +211,7 @@ export const PayrollManagement = () => {
                                             </div>
                                             <div>
                                                 <p className="text-sm font-bold text-gray-900">{record.user?.fullName || 'Unknown'}</p>
-                                                <p className="text-xs text-gray-500 font-medium">{record.user?.position} • {record.user?.department}</p>
-                                            </div>
+                                                                              </div>
                                         </div>
                                     </td>
                                     

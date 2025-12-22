@@ -1,5 +1,10 @@
 import React, { useRef, useState, useCallback, useEffect } from 'react';
 import Webcam from 'react-webcam';
+
+const WebcamComponent = React.forwardRef((props: any, ref: any) => (
+  <Webcam {...props} ref={ref} />
+));
+WebcamComponent.displayName = 'WebcamComponent';
 import { useSelector } from 'react-redux';
 import { RootState } from '../../store/store';
 import api from '../../services/apiService';
@@ -112,7 +117,7 @@ export const Timekeeping = () => {
                 {imgSrc ? (
                 <img src={imgSrc} alt="Captured" className="w-full h-full object-cover" />
                 ) : (
-                <Webcam
+                <WebcamComponent
                     audio={false}
                     ref={webcamRef}
                     screenshotFormat="image/jpeg"
