@@ -8,6 +8,7 @@ export interface Employee {
   walletAddress?: string;
   avatar?: string;
   joinDate?: string;
+  company?: string
 }
 
 export interface Shift {

@@ -5,6 +5,33 @@ import {
   MapPin, ChevronDown 
 } from 'lucide-react';
 import api from '../../services/apiService';
+import toastService from '../../services/toastService';
+
+enum ShiftType {
+  PARTTIME = 'PARTTIME',
+  FULLTIME = 'FULLTIME',
+}
+
+interface Position {
+  _id: string;
+  name: string;
+}
+
+interface Shift {
+  _id: string;
+  name: string;
+  start_time: string;
+  end_time: string;
+  allowance: number;
+  color_code: string;
+  type: ShiftType;
+  position?: string | Position; 
+  check_allowed_time: number;
+  check_in_duration: number;
+  check_out_allowed_time: number;
+  standard_working_hours: number;
+  late_penalty_amount: number;
+}
 
 enum ShiftType {
   PARTTIME = 'PARTTIME',
@@ -258,7 +285,7 @@ export const ShiftManagement = () => {
                     </div>
                   </div>
                 </div>
-              </div>
+            )}
 
               <div className="pt-6 flex flex-col md:flex-row gap-4 border-t border-slate-50 bg-white">
                 <button type="button" onClick={() => setIsModalOpen(false)} className="flex-1 py-5 bg-slate-100 text-slate-600 rounded-[1.5rem] font-black hover:bg-slate-200 transition-all uppercase tracking-[0.2em] text-[10px]">Hủy bỏ</button>
@@ -270,7 +297,5 @@ export const ShiftManagement = () => {
             </form>
           </div>
         </div>
-      )}
-    </div>
-  );
+    );
 };
