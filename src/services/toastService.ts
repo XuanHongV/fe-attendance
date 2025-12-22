@@ -7,7 +7,6 @@ export const toastService = {
   info: (msg: string, opts = {}) => toast.info(msg, opts),
   warn: (msg: string, opts = {}) => toast.warn(msg, opts),
 
-  // confirm returns a Promise<boolean> that resolves to true when user confirms
   confirm: (title: string, message: string, okText = 'Xác nhận', cancelText = 'Hủy') =>
     new Promise<boolean>((resolve) => {
       confirmAlert({

@@ -7,12 +7,15 @@ import {
     X,
     RefreshCw,
     QrCode,
+    Copy,
     Download,
     Loader2,
 } from 'lucide-react';
 import { QRCodeCanvas } from 'qrcode.react';
 import { Employee } from '../../types';
 import api from '../../services/apiService';
+import userService from '../../services/userService';
+import toastService from '../../services/toastService';
 
 interface UserResponse {
     _id: string;
@@ -20,17 +23,12 @@ interface UserResponse {
     email: string;
     position?: string;
     department?: string;
-    walletAddress?: string;
+    wallet_address?: string;
     status: 'ACTIVE' | 'INACTIVE';
     role: string;
     createdAt: string;
     avatar?: string;
     company?: string | { _id: string; code: string; name: string };
-}
-
-interface PositionOption {
-    _id: string;
-    name: string;
 }
 
 type EmployeeFormState = Omit<Employee, 'id' | 'joinDate'>;
@@ -40,22 +38,20 @@ const defaultEmployeeForm: EmployeeFormState = {
     email: '',
     walletAddress: '',
     status: 'active',
+    department: '',
     avatar: '',
     role: 'STAFF',
     company: '',
 };
 
 export const EmployeeManagement: React.FC = () => {
-    const [employees, setEmployees] = useState<Employee[]>([]);
-
-    // State lưu danh sách options cho dropdown
-    const [positions, setPositions] = useState<PositionOption[]>([]);
+    const [employees, setEmployees] = useState<any[]>([]);
+    const [roles, setRoles] = useState<string[]>([]);
     const [loading, setLoading] = useState(true);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
 
-    // State lọc theo Vị trí
-    const [filterPos, setFilterPos] = useState<string>('all');
+    const [filterRole, setFilterRole] = useState<string>('ALL');
 
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingEmployee, setEditingEmployee] = useState<Employee | null>(null);
@@ -64,46 +60,42 @@ export const EmployeeManagement: React.FC = () => {
     const [qrEmployee, setQrEmployee] = useState<Employee | null>(null);
     const qrRef = useRef<HTMLDivElement>(null);
     const [realCompanyCode, setRealCompanyCode] = useState<string | null>(null);
-
+    const userStr = localStorage.getItem('user');
+    const currentUser = userStr ? JSON.parse(userStr) : null;
+    const companyId =
+        typeof currentUser?.companyId === 'string'
+            ? currentUser.companyId
+            : currentUser?.company?._id;
     const fetchData = async () => {
         setLoading(true);
         try {
-            const userStr = localStorage.getItem('user');
-            const currentUser = userStr ? JSON.parse(userStr) : null;
-            console.log('user', userStr)
-            const companyId =
-                typeof currentUser?.companyId === 'string'
-                    ? currentUser.companyId
-                    : currentUser?.company?._id;
-            
-            console.log('id company', companyId);
             if (!companyId) {
                 console.error('Lỗi: Tài khoản này chưa liên kết Công ty.');
                 setLoading(false);
                 return;
             }
 
-            // --- 1. Lấy danh sách Nhân viên ---
             const usersRes = await api.get(`/users/company/id/${companyId}`);
             const rawUsers = Array.isArray(usersRes.data)
                 ? usersRes.data
                 : usersRes.data?.data || [];
-            const staffOnly = rawUsers.filter((u: UserResponse) => u.role === 'STAFF');
-
-            const mappedEmployees: Employee[] = staffOnly.map((u: UserResponse) => ({
+            console.log('userres', usersRes.data)
+            const mappedEmployees: Employee[] = rawUsers.map((u: UserResponse) => ({
                 id: u._id,
                 fullName: u.fullName,
                 email: u.email,
-                walletAddress: u.walletAddress || '',
+                walletAddress: u.wallet_address || '',
                 status: u.status === 'ACTIVE' ? 'active' : 'inactive',
                 joinDate: u.createdAt,
                 companyId: u.company,
+                role: u.role,
                 avatar:
                     u.avatar ||
                     `https://ui-avatars.com/api/?name=${encodeURIComponent(
                         u.fullName
                     )}&background=random&color=fff`,
             }));
+          
             setEmployees(mappedEmployees);
 
             const foundCode =
@@ -112,16 +104,17 @@ export const EmployeeManagement: React.FC = () => {
                 rawUsers[0]?.companyCode;
             if (foundCode) setRealCompanyCode(foundCode);
 
-            // --- 2. Lấy danh sách Vị trí (Positions) & Phòng ban (Departments) ---
+            // --- 2. Lấy danh sách Vai trò từ API ---
             try {
-                // Gọi song song 2 API để tối ưu
-                const [posRes] = await Promise.all([api.get('/positions')]);
-
-                setPositions(
-                    Array.isArray(posRes.data) ? posRes.data : posRes.data?.data || []
+                const rolesRes = await userService.getAllRoles();
+                setRoles(
+                    Array.isArray(rolesRes) && rolesRes.length > 0
+                        ? rolesRes
+                        : ['ADMIN', 'STAFF']
                 );
             } catch (err) {
-                console.warn('Lỗi tải danh mục options (Positions/Departments).', err);
+                console.warn('Không tải được danh sách roles, sử dụng mặc định.', err);
+                setRoles(['ADMIN', 'STAFF']);
             }
         } catch (error) {
             console.error('Lỗi chung:', error);
@@ -134,6 +127,43 @@ export const EmployeeManagement: React.FC = () => {
         fetchData();
     }, []);
 
+    const handleRoleFilterChange = async (role: string) => {
+        setFilterRole(role);
+        setLoading(true);
+        try {
+            if (!companyId) return;
+            if (role === 'ALL') {
+                await fetchData();
+                return;
+            }
+            const res = await userService.getUsersByRole(role, companyId);
+            const mapped = Array.isArray(res)
+                ? res.map((u: any) => ({
+                      id: u._id || u.id,
+                      fullName: u.fullName,
+                      email: u.email,
+                      walletAddress: u.walletAddress || '',
+                      status: u.status === 'ACTIVE' ? 'active' : 'inactive',
+                      joinDate: u.createdAt,
+                      department: u.department,
+                      companyId: u.company,
+                      role: u.role,
+                      avatar:
+                          u.avatar ||
+                          `https://ui-avatars.com/api/?name=${encodeURIComponent(
+                              u.fullName
+                          )}&background=random&color=fff`,
+                  }))
+                : [];
+            setEmployees(mapped);
+        } catch (err) {
+            console.error('Lỗi lọc theo role:', err);
+            toastService.error('Không thể lọc theo vai trò');
+        } finally {
+            setLoading(false);
+        }
+    };
+
     // --- LOGIC LỌC ĐÃ SỬA ---
     const filteredEmployees = employees.filter((employee) => {
         const searchLower = searchTerm.toLowerCase();
@@ -141,14 +171,12 @@ export const EmployeeManagement: React.FC = () => {
         const matchesSearch =
             (employee.fullName?.toLowerCase() || '').includes(searchLower) ||
             (employee.email?.toLowerCase() || '').includes(searchLower) ||
-            (employee.position?.toLowerCase() || '').includes(searchLower);
+            (employee.position?.toLowerCase() || '').includes(searchLower) ||
+            (employee.role?.toLowerCase() || '').includes(searchLower);
 
-        // Lọc theo Position (Vị trí)
-        // Nếu filterPos = 'all' thì lấy hết
-        // Ngược lại so sánh employee.position với giá trị đang chọn
-        const matchesPos = filterPos === 'all' || (employee.position || '') === filterPos;
+        const matchesRole = filterRole === 'ALL' || (employee.role || '') === filterRole;
 
-        return matchesSearch && matchesPos;
+        return matchesSearch && matchesRole;
     });
 
     const getStatusColor = (status: string) => {
@@ -157,26 +185,23 @@ export const EmployeeManagement: React.FC = () => {
             : 'bg-gray-100 text-gray-800';
     };
 
-    // ... (Giữ nguyên các hàm handle modal, qr code...)
     const handleOpenModal = (employee: Employee | null) => {
         if (employee) {
             setEditingEmployee(employee);
             setFormData({
                 fullName: employee.fullName,
                 email: employee.email,
-                position: employee.position,
                 walletAddress: employee.walletAddress,
                 department: employee.department,
                 status: employee.status,
                 avatar: employee.avatar,
-                role: 'STAFF',
+                role: (employee as any).role || 'STAFF',
             });
         } else {
             setEditingEmployee(null);
             setFormData({
                 ...defaultEmployeeForm,
-                // Tự động chọn giá trị đầu tiên nếu có danh sách
-                position: positions.length > 0 ? positions[0].name : '',
+                role: roles.includes('STAFF') ? 'STAFF' : roles[0] || 'STAFF',
             });
         }
         setIsModalOpen(true);
@@ -224,8 +249,8 @@ export const EmployeeManagement: React.FC = () => {
 
     const handleSubmit = async (e: FormEvent) => {
         e.preventDefault();
-        if (!formData.position) {
-            alert('Vui lòng chọn chức vụ!');
+        if (!formData.role) {
+            toastService.error('Vui lòng chọn vai trò!');
             return;
         }
 
@@ -241,12 +266,13 @@ export const EmployeeManagement: React.FC = () => {
 
             const payload = {
                 ...formData,
+                role: formData.role,
                 status: formData.status === 'active' ? 'ACTIVE' : 'INACTIVE',
             };
 
             if (editingEmployee) {
                 await api.patch(`/users/${editingEmployee.id}`, payload);
-                alert('Cập nhật thành công!');
+                toastService.success('Cập nhật thành công!');
             } else {
                 const newPayload = {
                     ...payload,
@@ -255,13 +281,15 @@ export const EmployeeManagement: React.FC = () => {
                     status: 'INACTIVE',
                 };
                 await api.post('/users', newPayload);
-                alert('Thêm nhân viên thành công!');
+                toastService.success('Thêm nhân viên thành công!');
             }
             await fetchData();
             handleCloseModal();
         } catch (error: any) {
             console.error('Lỗi:', error);
-            alert(error.response?.data?.message || 'Có lỗi xảy ra');
+            const msg =
+                error?.response?.data?.message || error?.message || 'Có lỗi xảy ra';
+            toastService.error(Array.isArray(msg) ? msg.join('\n') : String(msg));
         } finally {
             setIsSubmitting(false);
         }
@@ -316,31 +344,26 @@ export const EmployeeManagement: React.FC = () => {
                         <div className='flex items-center space-x-2 bg-white border border-gray-300 rounded-lg px-3 py-2 focus-within:ring-2 focus-within:ring-blue-500 focus-within:border-transparent'>
                             <Filter className='h-4 w-4 text-gray-500' />
                             <select
-                                value={filterPos}
-                                onChange={(e) => setFilterPos(e.target.value)}
+                                value={filterRole}
+                                onChange={(e) => handleRoleFilterChange(e.target.value)}
                                 className='bg-transparent outline-none text-sm text-gray-700 cursor-pointer min-w-[150px]'
                             >
-                                <option value='all'>Tất cả Vị Trí</option>
-                                {/* 1. Ưu tiên lấy từ danh sách Position API */}
-                                {positions.map((pos) => (
-                                    <option key={pos._id} value={pos.name}>
-                                        {pos.name}
+                                <option value='ALL'>Tất cả Vai trò</option>
+                                {roles.map((r) => (
+                                    <option key={r} value={r}>
+                                        {r === 'ADMIN'
+                                            ? 'Quản lý'
+                                            : r === 'STAFF'
+                                            ? 'Nhân viên'
+                                            : r}
                                     </option>
                                 ))}
-
-                                {/* 2. Fallback: Nếu API lỗi, tự lấy từ list nhân viên hiện tại để ko bị trống */}
-                                {positions.length === 0 &&
-                                    Array.from(
-                                        new Set(
-                                            employees
-                                                .map((e) => e.position)
-                                                .filter(Boolean)
-                                        )
-                                    ).map((posName) => (
-                                        <option key={posName} value={posName}>
-                                            {posName}
-                                        </option>
-                                    ))}
+                                {roles.length === 0 && (
+                                    <>
+                                        <option value='ADMIN'>Quản lý</option>
+                                        <option value='STAFF'>Nhân viên</option>
+                                    </>
+                                )}
                             </select>
                         </div>
                     </div>
@@ -363,7 +386,7 @@ export const EmployeeManagement: React.FC = () => {
                                     Chức vụ
                                 </th>
                                 <th className='text-left py-4 px-6 font-semibold text-gray-900 text-sm uppercase tracking-wider'>
-                                    Phòng ban
+                                    Ví điện tử
                                 </th>
                                 <th className='text-left py-4 px-6 font-semibold text-gray-900 text-sm uppercase tracking-wider'>
                                     Trạng thái
@@ -413,17 +436,60 @@ export const EmployeeManagement: React.FC = () => {
                                             {employee.email}
                                         </td>
 
-                                        {/* Cột Chức vụ (Position) */}
+                                        {/* Cột Vai trò (Role) */}
                                         <td className='py-4 px-6 text-sm'>
                                             <span className='font-medium text-gray-900 bg-gray-100 px-2 py-1 rounded'>
-                                                {employee.position}
+                                                {employee.role === 'ADMIN'
+                                                    ? 'Quản lý'
+                                                    : employee.role === 'STAFF'
+                                                    ? 'Nhân viên'
+                                                    : employee.role}
                                             </span>
                                         </td>
 
                                         <td className='py-4 px-6 text-sm text-gray-700'>
-                                            <span className='bg-blue-50 text-blue-700 px-2 py-1 rounded text-xs font-medium border border-blue-100'>
-                                                {employee.department}
-                                            </span>
+                                            <div className='flex items-center gap-2 justify-center md:justify-start'>
+                                                <span
+                                                    title={employee.walletAddress || ''}
+                                                    className='font-mono text-sm text-gray-700'
+                                                >
+                                                    {employee.walletAddress
+                                                        ? employee.walletAddress.length >
+                                                          14
+                                                            ? `${employee.walletAddress.slice(
+                                                                  0,
+                                                                  6
+                                                              )}...${employee.walletAddress.slice(
+                                                                  -4
+                                                              )}`
+                                                            : employee.walletAddress
+                                                        : '-'}
+                                                </span>
+
+                                                {employee.walletAddress && (
+                                                    <button
+                                                        onClick={async () => {
+                                                            try {
+                                                                await navigator.clipboard.writeText(
+                                                                    employee.walletAddress ||
+                                                                        ''
+                                                                );
+                                                                toastService.success(
+                                                                    'Đã sao chép địa chỉ ví'
+                                                                );
+                                                            } catch (e) {
+                                                                toastService.error(
+                                                                    'Không thể sao chép'
+                                                                );
+                                                            }
+                                                        }}
+                                                        className='text-gray-400 hover:text-gray-700 p-1 rounded hover:bg-gray-100 transition-colors'
+                                                        title='Sao chép ví'
+                                                    >
+                                                        <Copy className='w-4 h-4' />
+                                                    </button>
+                                                )}
+                                            </div>
                                         </td>
                                         <td className='py-4 px-6'>
                                             <span
@@ -551,24 +617,35 @@ export const EmployeeManagement: React.FC = () => {
                                         {/* Select Chức vụ (Position) */}
                                         <div>
                                             <label className='block text-sm font-bold text-gray-700 mb-1'>
-                                                Chức vụ *
+                                                Vai trò *
                                             </label>
                                             <select
-                                                name='position'
-                                                value={formData.position}
+                                                name='role'
+                                                value={formData.role}
                                                 onChange={handleChange}
                                                 className='w-full px-3 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-blue-500 outline-none transition-all'
                                                 required
                                             >
                                                 <option value=''>-- Chọn --</option>
-                                                {positions.map((pos) => (
-                                                    <option
-                                                        key={pos._id}
-                                                        value={pos.name}
-                                                    >
-                                                        {pos.name}
+                                                {roles.map((r) => (
+                                                    <option key={r} value={r}>
+                                                        {r === 'ADMIN'
+                                                            ? 'Quản lý'
+                                                            : r === 'STAFF'
+                                                            ? 'Nhân viên'
+                                                            : r}
                                                     </option>
                                                 ))}
+                                                {roles.length === 0 && (
+                                                    <>
+                                                        <option value='ADMIN'>
+                                                            Quản lý
+                                                        </option>
+                                                        <option value='STAFF'>
+                                                            Nhân viên
+                                                        </option>
+                                                    </>
+                                                )}
                                             </select>
                                         </div>
 
@@ -676,7 +753,14 @@ export const EmployeeManagement: React.FC = () => {
                                 {qrEmployee.fullName}
                             </p>
                             <p className='text-sm text-gray-500 mt-1 font-medium'>
-                                {qrEmployee.position}
+                                {qrEmployee.walletAddress
+                                    ? qrEmployee.walletAddress.length > 14
+                                        ? `${qrEmployee.walletAddress.slice(
+                                              0,
+                                              6
+                                          )}...${qrEmployee.walletAddress.slice(-4)}`
+                                        : qrEmployee.walletAddress
+                                    : ''}
                             </p>
                         </div>
                         <button
