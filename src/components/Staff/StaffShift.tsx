@@ -135,7 +135,6 @@ export const StaffShift = () => {
 
     return daysArray;
   };
-  // ------------------------------
 
   if (loading) {
     return (
