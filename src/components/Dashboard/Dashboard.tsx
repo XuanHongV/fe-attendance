@@ -1,255 +1,198 @@
 import React, { useEffect, useState } from 'react';
-import { Users, Building2, DollarSign, Activity, Shield, AlertTriangle, TrendingUp, Zap, Clock } from 'lucide-react';
-import { MetricCard } from './MetricCard';
+import { 
+  Users, 
+  Briefcase, 
+  Activity, 
+  AlertTriangle, 
+  TrendingUp, 
+  Clock, 
+  CheckCircle, 
+  Loader2
+} from 'lucide-react';
+import { MetricCard } from './MetricCard'; 
 import api from '../../services/apiService';
 
-const mockAttendance = [
-  { id: 'NV001', name: 'Nguyễn Văn Phúc', checkIn: '08:02:15', checkOut: '17:01:30', status: 'Đã xác thực', statusColor: 'green' },
-  { id: 'NV002', name: 'Trần Thị B', checkIn: '08:15:45', checkOut: '16:55:10', status: 'Cảnh báo AI', statusColor: 'yellow' },
-  { id: 'NV003', name: 'Lê Văn C', checkIn: '07:59:01', checkOut: '17:00:05', status: 'Đã xác thực', statusColor: 'green' },
-  { id: 'NV004', name: 'Phạm Thị D', checkIn: '08:05:20', checkOut: '17:02:40', status: 'Đã xác thực', statusColor: 'green' },
-  { id: 'NV005', name: 'Huỳnh Văn E', checkIn: '09:30:11', checkOut: '17:05:00', status: 'Chờ duyệt', statusColor: 'gray' },
-];
+interface DashboardStats {
+  totalEmployees: number;
+  totalPositions: number;
+  totalPayrollMonth: number;
+  aiAlerts: number;
+}
 
-const mockPayrollTxs = [
-  { hash: '0x1a9b...f3c4', employeeId: 'NV001', amount: '2.15 ETH', status: 'Đã xác nhận', time: '1 giờ trước' },
-  { hash: '0x7f5e...a2d1', employeeId: 'NV002', amount: '1.98 ETH', status: 'Đã xác nhận', time: '1 giờ trước' },
-  { hash: '0x9d2c...e5f6', employeeId: 'NV003', amount: '2.20 ETH', status: 'Đang xử lý', time: '1 giờ trước' },
-  { hash: '0x3e7f...b8a9', employeeId: 'NV004', amount: '2.18 ETH', status: 'Đã xác nhận', time: '1 giờ trước' },
-];
+interface RecentAttendance {
+  id: string;
+  user: { fullName: string; _id: string };
+  date: string;
+  checkInTime: string;
+  checkOutTime: string;
+  status: string;
+  lateMinutes?: number;
+}
 
 export default function Dashboard() {
-  const [stats, setStats] = useState({
+  const [stats, setStats] = useState<DashboardStats>({
     totalEmployees: 0,
-    totalDepartments: 0,
+    totalPositions: 0,
+    totalPayrollMonth: 0,
+    aiAlerts: 0
   });
+  
+  const [recentAttendances, setRecentAttendances] = useState<RecentAttendance[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const fetchStats = async () => {
+    const fetchDashboardData = async () => {
+      setLoading(true);
+
       try {
-        const [usersRes, deptsRes] = await Promise.all([
-            api.get('/users'),
-            api.get('/departments').catch(() => ({ data: [] }))
+        const userStr = localStorage.getItem('user');
+        if (!userStr) {
+            setLoading(false);
+            return;
+        }
+
+        const currentUser = JSON.parse(userStr);
+        const companyId = currentUser.company?._id 
+                       || (typeof currentUser.company === 'string' ? currentUser.company : null)
+                       || currentUser.companyId;
+
+        if (!companyId) {
+            setLoading(false);
+            return;
+        }
+
+        const fetchSafe = async (promise: Promise<any>) => {
+            try {
+                const res = await promise;
+                return Array.isArray(res.data) ? res.data : (res.data?.data || []);
+            } catch (e) {
+                return [];
+            }
+        };
+
+        const [usersData, positionsData, attendanceData, payrollData] = await Promise.all([
+            fetchSafe(api.get(`/users/company/id/${companyId}`)),
+            fetchSafe(api.get('/positions')),
+            fetchSafe(api.get('/attendance')),
+            fetchSafe(api.get('/payroll-payment'))
         ]);
+
+        const totalEmployees = usersData.filter((u: any) => u.role?.toUpperCase() === 'STAFF').length;
+        const totalPositions = positionsData.length;
+        const alerts = attendanceData.filter((a: any) => a.status === 'ai_alert' || (a.lateMinutes && a.lateMinutes > 0)).length;
         
+        const recent = attendanceData
+            .sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+            .slice(0, 5);
+        setRecentAttendances(recent);
+
+        const currentMonth = new Date().toISOString().slice(0, 7);
+        const payrollMonthCount = payrollData.filter((p: any) => p.month === currentMonth).length;
+
         setStats({
-            totalEmployees: usersRes.data.length,
-            totalDepartments: deptsRes.data.length
+            totalEmployees,
+            totalPositions,
+            totalPayrollMonth: payrollMonthCount,
+            aiAlerts: alerts
         });
+
       } catch (error) {
-        console.error("Lỗi tải thống kê Dashboard:", error);
+        console.error("Lỗi tải Dashboard:", error);
+      } finally {
+        setLoading(false);
       }
     };
-    fetchStats();
+
+    fetchDashboardData();
   }, []);
+
+  const renderStatusBadge = (status: string, lateMinutes?: number) => {
+      if (status === 'verified') return <span className="bg-green-100 text-green-700 px-2 py-1 rounded-full text-xs font-bold flex items-center gap-1 w-fit"><CheckCircle size={12}/> Hợp lệ</span>;
+      if (status === 'ai_alert') return <span className="bg-red-100 text-red-700 px-2 py-1 rounded-full text-xs font-bold flex items-center gap-1 w-fit"><AlertTriangle size={12}/> Cảnh báo AI</span>;
+      if (lateMinutes && lateMinutes > 0) return <span className="bg-yellow-100 text-yellow-700 px-2 py-1 rounded-full text-xs font-bold flex items-center gap-1 w-fit"><Clock size={12}/> Trễ {lateMinutes}p</span>;
+      return <span className="bg-gray-100 text-gray-600 px-2 py-1 rounded-full text-xs font-bold w-fit">Chờ duyệt</span>;
+  };
+
+  if (loading) return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+          <div className="flex flex-col items-center gap-2">
+            <Loader2 className="w-10 h-10 text-blue-600 animate-spin" />
+            <span className="text-gray-500 text-sm">Đang tải dữ liệu...</span>
+          </div>
+      </div>
+  );
 
   return (
     <div className="p-6 bg-gray-50 min-h-screen">
       <div className="mb-8">
-        <h2 className="text-2xl font-bold text-gray-900 mb-2">Trang tổng quan Chấm công & Lương</h2>
-        <p className="text-gray-600">
-          Tổng quan về hệ thống chấm công minh bạch bằng AI và Blockchain.
-        </p>
+        <h2 className="text-2xl font-bold text-gray-900 mb-2">Trang tổng quan</h2>
+        <p className="text-gray-600">Tổng quan hệ thống chấm công và tính lương.</p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-        
-        <MetricCard 
-            title="Tổng Nhân sự" 
-            value={stats.totalEmployees} 
-            change="Cập nhật realtime" 
-            changeType="positive" 
-            icon={Users} 
-            color="blue" 
-        />
-        
-        <MetricCard 
-            title="Phòng ban" 
-            value={stats.totalDepartments} 
-            change="Hoạt động" 
-            changeType="positive" 
-            icon={Building2} 
-            color="green" 
-        />
-        
-        <MetricCard 
-            title="Giao dịch lương (Tháng)" 
-            value="452" 
-            change="+15 chờ xử lý" 
-            changeType="neutral" 
-            icon={Activity} 
-            color="purple" 
-        />
-        
-        <MetricCard 
-            title="Cảnh báo AI" 
-            value="8" 
-            change="Cần xem xét" 
-            changeType="negative" 
-            icon={AlertTriangle} 
-            color="yellow" 
-        />
-      </div>
-
-      {/* === BẢNG CHẤM CÔNG === */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-8">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">Hoạt động chấm công gần đây</h3>
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm text-gray-700">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="text-left py-3 px-4">Mã NV</th>
-                <th className="text-left py-3 px-4">Tên nhân viên</th>
-                <th className="text-left py-3 px-4">Giờ vào</th>
-                <th className="text-left py-3 px-4">Giờ ra</th>
-                <th className="text-left py-3 px-4">Trạng thái (AI)</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-200">
-              {mockAttendance.map((att) => (
-                <tr key={att.id} className="hover:bg-gray-50">
-                  <td className="py-3 px-4 font-medium text-blue-600">{att.id}</td>
-                  <td className="py-3 px-4">{att.name}</td>
-                  <td className="py-3 px-4">{att.checkIn}</td>
-                  <td className="py-3 px-4">{att.checkOut}</td>
-                  <td className="py-3 px-4">
-                    <span
-                      className={`px-2 py-1 text-xs font-medium rounded-full ${
-                        att.statusColor === 'green' ? 'bg-green-100 text-green-800' :
-                        att.statusColor === 'yellow' ? 'bg-yellow-100 text-yellow-800' :
-                        'bg-gray-100 text-gray-600'
-                      }`}
-                    >
-                      {att.status}
-                    </span>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <MetricCard title="Tổng Nhân viên" value={stats.totalEmployees} change="Đang hoạt động" changeType="positive" icon={Users} color="blue" />
+        <MetricCard title="Vị trí / Chức vụ" value={stats.totalPositions} change="Cấu hình" changeType="positive" icon={Briefcase} color="green" />
+        <MetricCard title="Giao dịch Lương" value={stats.totalPayrollMonth} change="Tháng này" changeType="neutral" icon={Activity} color="purple" />
+        <MetricCard title="Cảnh báo AI" value={stats.aiAlerts} change={stats.aiAlerts > 0 ? "Cần xử lý" : "Ổn định"} changeType={stats.aiAlerts > 0 ? "negative" : "positive"} icon={AlertTriangle} color="yellow" />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-        
-        {/* Quy trình */}
         <div className="lg:col-span-2 bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-          <div className="flex items-center justify-between mb-6">
-            <h3 className="text-lg font-semibold text-gray-900">Quy trình Xử lý Lương Minh bạch</h3>
-            <TrendingUp className="h-5 w-5 text-gray-400" />
-          </div>
-          <div className="h-64 bg-gradient-to-r from-blue-50 to-teal-50 rounded-lg flex items-center justify-center">
-            <div className="text-center">
-              <div className="flex items-center justify-center space-x-4 md:space-x-8">
-                <div className="flex flex-col items-center">
-                  <div className="w-12 h-12 bg-blue-500 rounded-full flex items-center justify-center mb-2">
-                    <Clock className="h-6 w-6 text-white" />
-                  </div>
-                  <span className="text-sm font-medium">Ghi nhận công</span>
-                  <span className="text-xs text-gray-500">Hệ thống</span>
-                </div>
-                <div className="w-8 h-0.5 bg-gray-300"></div>
-                <div className="flex flex-col items-center">
-                  <div className="w-12 h-12 bg-yellow-500 rounded-full flex items-center justify-center mb-2">
-                    <Zap className="h-6 w-6 text-white" />
-                  </div>
-                  <span className="text-sm font-medium">AI Xác thực</span>
-                  <span className="text-xs text-gray-500">Tự động</span>
-                </div>
-                <div className="w-8 h-0.5 bg-gray-300"></div>
-                <div className="flex flex-col items-center">
-                  <div className="w-12 h-12 bg-purple-500 rounded-full flex items-center justify-center mb-2">
-                    <Shield className="h-6 w-6 text-white" />
-                  </div>
-                  <span className="text-sm font-medium">Quản lý duyệt</span>
-                  <span className="text-xs text-gray-500">Thủ công</span>
-                </div>
-                <div className="w-8 h-0.5 bg-gray-300"></div>
-                <div className="flex flex-col items-center">
-                  <div className="w-12 h-12 bg-green-500 rounded-full flex items-center justify-center mb-2">
-                    <DollarSign className="h-6 w-6 text-white" />
-                  </div>
-                  <span className="text-sm font-medium">Trả lương</span>
-                  <span className="text-xs text-gray-500">Blockchain</span>
-                </div>
-              </div>
+            <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+                    <Clock className="text-blue-500" size={20} /> Hoạt động chấm công gần đây
+                </h3>
             </div>
-          </div>
-        </div>
-
-        {/* Cảnh báo AI */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-          <div className="flex items-center justify-between mb-6">
-            <h3 className="text-lg font-semibold text-gray-900">Cảnh báo AI & Hệ thống</h3>
-            <AlertTriangle className="h-5 w-5 text-yellow-500" />
-          </div>
-          <div className="space-y-4">
-            <div className="flex items-start space-x-3 p-3 bg-yellow-50 rounded-lg">
-              <div className="w-2 h-2 bg-yellow-500 rounded-full mt-2"></div>
-              <div className="flex-1">
-                <p className="text-sm font-medium text-gray-900">Phát hiện trùng lặp</p>
-                <p className="text-xs text-gray-600">NV002: Check-in 2 lần lúc 08:15 và 08:16.</p>
-                <p className="text-xs text-gray-400 mt-1">2 giờ trước</p>
-              </div>
-            </div>
-            
-            <div className="flex items-start space-x-3 p-3 bg-red-50 rounded-lg">
-              <div className="w-2 h-2 bg-red-500 rounded-full mt-2"></div>
-              <div className="flex-1">
-                <p className="text-sm font-medium text-gray-900">Sai lệch vị trí (GPS)</p>
-                <p className="text-xs text-gray-600">NV005: Check-in ngoài phạm vi văn phòng.</p>
-                <p className="text-xs text-gray-400 mt-1">4 giờ trước</p>
-              </div>
-            </div>
-            
-            <div className="flex items-start space-x-3 p-3 bg-blue-50 rounded-lg">
-              <div className="w-2 h-2 bg-blue-500 rounded-full mt-2"></div>
-              <div className="flex-1">
-                <p className="text-sm font-medium text-gray-900">Hợp đồng thông minh</p>
-                <p className="text-xs text-gray-600">Cập nhật hợp đồng lương cho NV001 thành công.</p>
-                <p className="text-xs text-gray-400 mt-1">6 giờ trước</p>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* === BẢNG GIAO DỊCH === */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-6">Lịch sử Trả lương thưởng (Blockchain)</h3>
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead>
-              <tr className="border-b border-gray-200">
-                <th className="text-left py-3 px-4 font-medium text-gray-700">Transaction Hash</th>
-                <th className="text-left py-3 px-4 font-medium text-gray-700">Mã NV</th>
-                <th className="text-left py-3 px-4 font-medium text-gray-700">Số tiền</th>
-                <th className="text-left py-3 px-4 font-medium text-gray-700">Trạng thái</th>
-                <th className="text-left py-3 px-4 font-medium text-gray-700">Thời gian</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-200">
-              {mockPayrollTxs.map((tx, index) => (
-                <tr key={index} className="hover:bg-gray-50">
-                  <td className="py-3 px-4">
-                    <code className="text-sm bg-gray-100 px-2 py-1 rounded">{tx.hash}</code>
-                  </td>
-                  <td className="py-3 px-4 text-sm font-medium text-blue-600">{tx.employeeId}</td>
-                  <td className="py-3 px-4 text-sm text-gray-900">{tx.amount}</td>
-                  <td className="py-3 px-4">
-                    <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${
-                      tx.status === 'Đã xác nhận' 
-                        ? 'bg-green-100 text-green-800' 
-                        : 'bg-yellow-100 text-yellow-800'
-                    }`}>
-                      {tx.status}
-                    </span>
-                  </td>
-                  <td className="py-3 px-4 text-sm text-gray-500">{tx.time}</td>
+            <div className="overflow-x-auto">
+            <table className="w-full text-sm text-gray-700">
+                <thead className="bg-gray-50 border-b border-gray-200">
+                <tr>
+                    <th className="text-left py-3 px-4 font-semibold">Nhân viên</th>
+                    <th className="text-left py-3 px-4 font-semibold">Ngày</th>
+                    <th className="text-left py-3 px-4 font-semibold">Vào</th>
+                    <th className="text-left py-3 px-4 font-semibold">Ra</th>
+                    <th className="text-left py-3 px-4 font-semibold">Trạng thái</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+                </thead>
+                <tbody className="divide-y divide-gray-200">
+                {recentAttendances.length === 0 ? (
+                    <tr><td colSpan={5} className="text-center py-8 text-gray-400 italic">Chưa có dữ liệu chấm công nào.</td></tr>
+                ) : (
+                    recentAttendances.map((att) => (
+                        <tr key={att.id} className="hover:bg-blue-50/30 transition-colors">
+                        <td className="py-3 px-4"><div className="font-bold text-gray-900">{att.user?.fullName || 'Unknown'}</div></td>
+                        <td className="py-3 px-4 text-gray-500">{new Date(att.date).toLocaleDateString('vi-VN')}</td>
+                        <td className="py-3 px-4 font-mono text-blue-600">{att.checkInTime || '--:--'}</td>
+                        <td className="py-3 px-4 font-mono text-purple-600">{att.checkOutTime || '--:--'}</td>
+                        <td className="py-3 px-4">{renderStatusBadge(att.status, att.lateMinutes)}</td>
+                        </tr>
+                    ))
+                )}
+                </tbody>
+            </table>
+            </div>
+        </div>
+
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 flex flex-col">
+          <div className="flex items-center justify-between mb-6">
+            <h3 className="text-lg font-bold text-gray-900">Health Check</h3>
+            <div className="flex items-center gap-2">
+                <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
+                <span className="text-xs text-green-600 font-medium">Online</span>
+            </div>
+          </div>
+          <div className="space-y-4 flex-1">
+             <div className="p-4 bg-slate-50 border border-slate-100 rounded-xl">
+                <div className="flex items-center gap-2 mb-1">
+                    <TrendingUp size={16} className="text-slate-600" />
+                    <span className="font-bold text-slate-700 text-sm">Hệ thống</span>
+                </div>
+                <div className="text-xs text-gray-500">
+                    <p>API Status: {loading ? 'Checking...' : 'Connected'}</p>
+                    <p>Last Sync: {new Date().toLocaleTimeString()}</p>
+                </div>
+            </div>
+          </div>
         </div>
       </div>
     </div>
