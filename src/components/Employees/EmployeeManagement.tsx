@@ -61,10 +61,11 @@ export const EmployeeManagement: React.FC = () => {
     const qrRef = useRef<HTMLDivElement>(null);
     const [realCompanyCode, setRealCompanyCode] = useState<string | null>(null);
     const userStr = localStorage.getItem('user');
+    
     const currentUser = userStr ? JSON.parse(userStr) : null;
     const companyId =
-        typeof currentUser?.companyId === 'string'
-            ? currentUser.companyId
+        typeof currentUser?.company === 'string'
+            ? currentUser.company
             : currentUser?.company?._id;
     const fetchData = async () => {
         setLoading(true);
@@ -192,7 +193,7 @@ export const EmployeeManagement: React.FC = () => {
                 fullName: employee.fullName,
                 email: employee.email,
                 walletAddress: employee.walletAddress,
-                department: employee.department,
+                // department: employee.department,
                 status: employee.status,
                 avatar: employee.avatar,
                 role: (employee as any).role || 'STAFF',
