@@ -1,13 +1,7 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { 
-  Users, 
-  Briefcase, 
-  Activity, 
-  AlertTriangle, 
-  TrendingUp, 
-  Clock, 
-  CheckCircle, 
-  Loader2
+  Users, Briefcase, Activity, AlertTriangle, 
+  TrendingUp, Clock, CheckCircle, Loader2, RefreshCw
 } from 'lucide-react';
 import { MetricCard } from './MetricCard'; 
 import api from '../../services/apiService';
@@ -36,161 +30,208 @@ export default function Dashboard() {
     totalPayrollMonth: 0,
     aiAlerts: 0
   });
-  
   const [recentAttendances, setRecentAttendances] = useState<RecentAttendance[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    const fetchDashboardData = async () => {
-      setLoading(true);
+  const formatTimeFromDB = (dateInput: any) => {
+    if (!dateInput) return '--:--';
+    const dateStr = dateInput.$date || dateInput;
+    try {
+      const date = new Date(dateStr);
+      return date.toLocaleTimeString('vi-VN', { 
+        hour: '2-digit', 
+        minute: '2-digit',
+        hour12: false 
+      });
+    } catch {
+      return '--:--';
+    }
+  };
 
-      try {
-        const userStr = localStorage.getItem('user');
-        if (!userStr) {
-            setLoading(false);
-            return;
+  const fetchDashboardData = useCallback(async () => {
+    setLoading(true);
+    try {
+      const userStr = localStorage.getItem('user');
+      if (!userStr) return;
+
+      const currentUser = JSON.parse(userStr);
+      const companyId = currentUser.company?._id || currentUser.company || currentUser.companyId;
+      if (!companyId) return;
+
+      const fetchSafe = async (promise: Promise<any>) => {
+        try {
+          const res = await promise;
+          return Array.isArray(res.data) ? res.data : (res.data?.data || []);
+        } catch {
+          return [];
         }
+      };
 
-        const currentUser = JSON.parse(userStr);
-        const companyId = currentUser.company?._id 
-                       || (typeof currentUser.company === 'string' ? currentUser.company : null)
-                       || currentUser.companyId;
+      const [usersData, positionsData, attendanceData, payrollData] = await Promise.all([
+        fetchSafe(api.get(`/users/company/id/${companyId}`)),
+        fetchSafe(api.get('/positions')),
+        fetchSafe(api.get('/attendance')),
+        fetchSafe(api.get('/payroll-payment'))
+      ]);
 
-        if (!companyId) {
-            setLoading(false);
-            return;
-        }
+      const totalEmployees = usersData.filter((u: any) => u.role?.toUpperCase() === 'STAFF').length;
+      const totalPositions = positionsData.length;
+      const alerts = attendanceData.filter((a: any) => a.status === 'LATE' || a.status === 'ABSENT').length;
+      
+      const recent = attendanceData
+        .sort((a: any, b: any) => {
+          const dateA = new Date(a.createdAt?.$date || a.createdAt).getTime();
+          const dateB = new Date(b.createdAt?.$date || b.createdAt).getTime();
+          return dateB - dateA;
+        })
+        .slice(0, 8) 
+        .map((att: any) => ({
+          id: att._id?.$oid || att._id,
+          user: att.user || { fullName: 'N/A' },
+          date: att.check_in_time?.$date || att.check_in_time || att.createdAt?.$date || att.createdAt,
+          checkInTime: formatTimeFromDB(att.check_in_time),
+          checkOutTime: formatTimeFromDB(att.check_out_time),
+          status: att.status,
+          lateMinutes: att.late_minutes 
+        }));
 
-        const fetchSafe = async (promise: Promise<any>) => {
-            try {
-                const res = await promise;
-                return Array.isArray(res.data) ? res.data : (res.data?.data || []);
-            } catch (e) {
-                return [];
-            }
-        };
+      setRecentAttendances(recent);
 
-        const [usersData, positionsData, attendanceData, payrollData] = await Promise.all([
-            fetchSafe(api.get(`/users/company/id/${companyId}`)),
-            fetchSafe(api.get('/positions')),
-            fetchSafe(api.get('/attendance')),
-            fetchSafe(api.get('/payroll-payment'))
-        ]);
+      const currentMonth = new Date().toISOString().slice(0, 7);
+      const payrollMonthCount = payrollData.filter((p: any) => p.month === currentMonth).length;
 
-        const totalEmployees = usersData.filter((u: any) => u.role?.toUpperCase() === 'STAFF').length;
-        const totalPositions = positionsData.length;
-        const alerts = attendanceData.filter((a: any) => a.status === 'ai_alert' || (a.lateMinutes && a.lateMinutes > 0)).length;
-        
-        const recent = attendanceData
-            .sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-            .slice(0, 5);
-        setRecentAttendances(recent);
-
-        const currentMonth = new Date().toISOString().slice(0, 7);
-        const payrollMonthCount = payrollData.filter((p: any) => p.month === currentMonth).length;
-
-        setStats({
-            totalEmployees,
-            totalPositions,
-            totalPayrollMonth: payrollMonthCount,
-            aiAlerts: alerts
-        });
-
-      } catch (error) {
-        console.error("Lỗi tải Dashboard:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchDashboardData();
+      setStats({
+        totalEmployees,
+        totalPositions,
+        totalPayrollMonth: payrollMonthCount,
+        aiAlerts: alerts
+      });
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
+  useEffect(() => {
+    fetchDashboardData();
+  }, [fetchDashboardData]);
+
   const renderStatusBadge = (status: string, lateMinutes?: number) => {
-      if (status === 'verified') return <span className="bg-green-100 text-green-700 px-2 py-1 rounded-full text-xs font-bold flex items-center gap-1 w-fit"><CheckCircle size={12}/> Hợp lệ</span>;
-      if (status === 'ai_alert') return <span className="bg-red-100 text-red-700 px-2 py-1 rounded-full text-xs font-bold flex items-center gap-1 w-fit"><AlertTriangle size={12}/> Cảnh báo AI</span>;
-      if (lateMinutes && lateMinutes > 0) return <span className="bg-yellow-100 text-yellow-700 px-2 py-1 rounded-full text-xs font-bold flex items-center gap-1 w-fit"><Clock size={12}/> Trễ {lateMinutes}p</span>;
-      return <span className="bg-gray-100 text-gray-600 px-2 py-1 rounded-full text-xs font-bold w-fit">Chờ duyệt</span>;
+    const baseClass = "px-3 py-1 rounded-full text-[10px] font-black uppercase flex items-center gap-1 w-fit border";
+    switch (status) {
+      case 'DONE':
+      case 'PRESENT':
+        return <span className={`${baseClass} bg-green-50 text-green-700 border-green-200`}><CheckCircle size={12}/> Hoàn tất</span>;
+      case 'LATE':
+        return <span className={`${baseClass} bg-yellow-50 text-yellow-700 border-yellow-200`}><Clock size={12}/> Late {lateMinutes }</span>;
+      case 'ABSENT':
+        return <span className={`${baseClass} bg-red-50 text-red-700 border-red-200`}><AlertTriangle size={12}/> Vắng mặt</span>;
+      default:
+        return <span className={`${baseClass} bg-slate-50 text-slate-600 border-slate-200`}>{status}</span>;
+    }
   };
 
   if (loading) return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-          <div className="flex flex-col items-center gap-2">
-            <Loader2 className="w-10 h-10 text-blue-600 animate-spin" />
-            <span className="text-gray-500 text-sm">Đang tải dữ liệu...</span>
-          </div>
+    <div className="min-h-screen flex items-center justify-center bg-[#F8FAFC]">
+      <div className="flex flex-col items-center gap-4">
+        <Loader2 className="w-12 h-12 text-blue-600 animate-spin" />
+        <p className="text-slate-400 font-black uppercase text-[10px] tracking-[0.2em]">Đang tổng hợp dữ liệu</p>
       </div>
+    </div>
   );
 
   return (
-    <div className="p-6 bg-gray-50 min-h-screen">
-      <div className="mb-8">
-        <h2 className="text-2xl font-bold text-gray-900 mb-2">Trang tổng quan</h2>
-        <p className="text-gray-600">Tổng quan hệ thống chấm công và tính lương.</p>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-        <MetricCard title="Tổng Nhân viên" value={stats.totalEmployees} change="Đang hoạt động" changeType="positive" icon={Users} color="blue" />
-        <MetricCard title="Vị trí / Chức vụ" value={stats.totalPositions} change="Cấu hình" changeType="positive" icon={Briefcase} color="green" />
-        <MetricCard title="Giao dịch Lương" value={stats.totalPayrollMonth} change="Tháng này" changeType="neutral" icon={Activity} color="purple" />
-        <MetricCard title="Cảnh báo AI" value={stats.aiAlerts} change={stats.aiAlerts > 0 ? "Cần xử lý" : "Ổn định"} changeType={stats.aiAlerts > 0 ? "negative" : "positive"} icon={AlertTriangle} color="yellow" />
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-        <div className="lg:col-span-2 bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-            <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
-                    <Clock className="text-blue-500" size={20} /> Hoạt động chấm công gần đây
-                </h3>
-            </div>
-            <div className="overflow-x-auto">
-            <table className="w-full text-sm text-gray-700">
-                <thead className="bg-gray-50 border-b border-gray-200">
-                <tr>
-                    <th className="text-left py-3 px-4 font-semibold">Nhân viên</th>
-                    <th className="text-left py-3 px-4 font-semibold">Ngày</th>
-                    <th className="text-left py-3 px-4 font-semibold">Vào</th>
-                    <th className="text-left py-3 px-4 font-semibold">Ra</th>
-                    <th className="text-left py-3 px-4 font-semibold">Trạng thái</th>
-                </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-200">
-                {recentAttendances.length === 0 ? (
-                    <tr><td colSpan={5} className="text-center py-8 text-gray-400 italic">Chưa có dữ liệu chấm công nào.</td></tr>
-                ) : (
-                    recentAttendances.map((att) => (
-                        <tr key={att.id} className="hover:bg-blue-50/30 transition-colors">
-                        <td className="py-3 px-4"><div className="font-bold text-gray-900">{att.user?.fullName || 'Unknown'}</div></td>
-                        <td className="py-3 px-4 text-gray-500">{new Date(att.date).toLocaleDateString('vi-VN')}</td>
-                        <td className="py-3 px-4 font-mono text-blue-600">{att.checkInTime || '--:--'}</td>
-                        <td className="py-3 px-4 font-mono text-purple-600">{att.checkOutTime || '--:--'}</td>
-                        <td className="py-3 px-4">{renderStatusBadge(att.status, att.lateMinutes)}</td>
-                        </tr>
-                    ))
-                )}
-                </tbody>
-            </table>
-            </div>
+    <div className="p-4 md:p-8 bg-[#F8FAFC] min-h-screen font-sans">
+      <div className="max-w-7xl mx-auto">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-10">
+          <div>
+            <h2 className="text-3xl font-black text-slate-900 tracking-tight">Trang Tổng Quan</h2>
+            <p className="text-slate-500 font-medium mt-1">Hệ thống quản lý nhân sự & chấm công Blockchain</p>
+          </div>
+          <button 
+            onClick={fetchDashboardData}
+            className="flex items-center justify-center gap-2 px-6 py-3 bg-white border border-slate-200 rounded-2xl text-slate-600 font-bold text-sm shadow-sm hover:bg-slate-50 transition-all active:scale-95"
+          >
+            <RefreshCw size={16} /> Làm mới
+          </button>
         </div>
 
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 flex flex-col">
-          <div className="flex items-center justify-between mb-6">
-            <h3 className="text-lg font-bold text-gray-900">Health Check</h3>
-            <div className="flex items-center gap-2">
-                <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
-                <span className="text-xs text-green-600 font-medium">Online</span>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
+          <MetricCard title="Tổng Nhân viên" value={stats.totalEmployees} change="Nhân sự Staff" changeType="positive" icon={Users} color="blue" />
+          <MetricCard title="Vị trí Chức vụ" value={stats.totalPositions} change="Đã cấu hình" changeType="positive" icon={Briefcase} color="green" />
+          <MetricCard title="Kỳ lương" value={stats.totalPayrollMonth} change="Tháng hiện tại" changeType="neutral" icon={Activity} color="purple" />
+          <MetricCard title="Muộn/Vắng" value={stats.aiAlerts} change={stats.aiAlerts > 0 ? "Cần kiểm tra" : "Ổn định"} changeType={stats.aiAlerts > 0 ? "negative" : "positive"} icon={AlertTriangle} color="yellow" />
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          <div className="lg:col-span-2 bg-white rounded-[2.5rem] shadow-xl shadow-slate-200/50 border border-white p-6 md:p-8">
+            <div className="flex items-center justify-between mb-8">
+              <h3 className="text-xl font-black text-slate-900 flex items-center gap-3 tracking-tight">
+                <Clock className="text-blue-600" size={24} /> Nhật ký chấm công
+              </h3>
+            </div>
+            
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-separate border-spacing-y-3">
+                <thead>
+                  <tr className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                    <th className="px-4 py-2">Nhân viên</th>
+                    <th className="px-4 py-2 text-center">Ngày</th>
+                    <th className="px-4 py-2 text-center">Giờ Vào</th>
+                    <th className="px-4 py-2 text-center">Giờ Ra</th>
+                    <th className="px-4 py-2 text-right">Trạng thái</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {recentAttendances.map((att) => (
+                    <tr key={att.id} className="bg-slate-50/50 hover:bg-blue-50/50 transition-all group">
+                      <td className="py-4 px-4 rounded-l-2xl">
+                        <span className="font-black text-slate-800 text-sm group-hover:text-blue-700">{att.user?.fullName}</span>
+                      </td>
+                      <td className="py-4 px-4 text-center text-xs font-bold text-slate-500">
+                        {new Date(att.date).toLocaleDateString('vi-VN')}
+                      </td>
+                      <td className="py-4 px-4 text-center font-black text-xs text-blue-600 font-mono">
+                        {att.checkInTime}
+                      </td>
+                      <td className="py-4 px-4 text-center font-black text-xs text-purple-600 font-mono">
+                        {att.checkOutTime}
+                      </td>
+                      <td className="py-4 px-4 rounded-r-2xl flex justify-end">
+                        {renderStatusBadge(att.status, att.lateMinutes)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           </div>
-          <div className="space-y-4 flex-1">
-             <div className="p-4 bg-slate-50 border border-slate-100 rounded-xl">
-                <div className="flex items-center gap-2 mb-1">
-                    <TrendingUp size={16} className="text-slate-600" />
-                    <span className="font-bold text-slate-700 text-sm">Hệ thống</span>
+
+          <div className="flex flex-col gap-6">
+            <div className="bg-white rounded-[2.5rem] shadow-xl shadow-slate-200/50 border border-white p-8">
+              <h3 className="text-xl font-black text-slate-900 mb-6 tracking-tight">Hệ thống</h3>
+              <div className="space-y-4">
+                <div className="p-4 bg-green-50 rounded-2xl border border-green-100 flex items-center justify-between">
+                  <span className="text-[10px] font-black text-green-700 uppercase tracking-widest">Blockchain Node</span>
+                  <div className="flex items-center gap-2">
+                    <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
+                    <span className="text-[10px] font-bold text-green-600 uppercase">Online</span>
+                  </div>
                 </div>
-                <div className="text-xs text-gray-500">
-                    <p>API Status: {loading ? 'Checking...' : 'Connected'}</p>
-                    <p>Last Sync: {new Date().toLocaleTimeString()}</p>
+                <div className="p-4 bg-blue-50 rounded-2xl border border-blue-100 flex items-center justify-between">
+                  <span className="text-[10px] font-black text-blue-700 uppercase tracking-widest">API Gateway</span>
+                  <span className="text-[10px] font-bold text-blue-600 uppercase tracking-tighter">Active</span>
                 </div>
+              </div>
+            </div>
+
+            <div className="bg-gradient-to-br from-blue-600 to-indigo-700 rounded-[2.5rem] p-8 text-white shadow-xl shadow-blue-200">
+              <TrendingUp size={32} className="mb-4 opacity-50" />
+              <h4 className="font-black text-lg mb-2 tracking-tight">Số liệu thực tế</h4>
+              <p className="text-blue-100 text-[11px] leading-relaxed font-medium">
+                Dữ liệu được truy xuất trực tiếp từ các khối Blockchain, đảm bảo tính minh bạch và không thể chỉnh sửa thông tin chấm công.
+              </p>
             </div>
           </div>
         </div>
