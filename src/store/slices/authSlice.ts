@@ -83,7 +83,7 @@ export const loginUser = createAsyncThunk(
 
       if (token && user) {
         localStorage.setItem('accessToken', token);
-        decodeAccessToken(token)
+        // decodeAccessToken(token)
         localStorage.setItem('user', JSON.stringify(user));
       }
 
