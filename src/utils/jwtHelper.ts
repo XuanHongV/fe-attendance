@@ -85,3 +85,12 @@ export function getUserFromToken(token: string): any | null {
 
     return null;
 }
+export const getCurrentUser = () => {
+  try {
+    const userStr = localStorage.getItem('user');
+    return userStr ? JSON.parse(userStr) : null;
+  } catch (error) {
+    console.error('Lỗi khi parse user từ localStorage:', error);
+    return null;
+  }
+};

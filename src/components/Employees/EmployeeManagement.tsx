@@ -44,78 +44,262 @@ const defaultEmployeeForm: EmployeeFormState = {
 };
 
 export const EmployeeManagement: React.FC = () => {
-  const [employees, setEmployees] = useState<any[]>([]);
-  const [roles, setRoles] = useState<string[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [searchTerm, setSearchTerm] = useState("");
+    const [employees, setEmployees] = useState<any[]>([]);
+    const [roles, setRoles] = useState<string[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const [searchTerm, setSearchTerm] = useState('');
 
-  const [filterRole, setFilterRole] = useState<string>("ALL");
+    const [filterRole, setFilterRole] = useState<string>('ALL');
 
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editingEmployee, setEditingEmployee] = useState<Employee | null>(null);
-  const [formData, setFormData] =
-    useState<EmployeeFormState>(defaultEmployeeForm);
-  const [qrModalOpen, setQrModalOpen] = useState(false);
-  const [qrEmployee, setQrEmployee] = useState<Employee | null>(null);
-  const qrRef = useRef<HTMLDivElement>(null);
-  const [realCompanyCode, setRealCompanyCode] = useState<string | null>(null);
+    const [isModalOpen, setIsModalOpen] = useState(false);
+    const [editingEmployee, setEditingEmployee] = useState<Employee | null>(null);
+    const [formData, setFormData] = useState<EmployeeFormState>(defaultEmployeeForm);
+    const [qrModalOpen, setQrModalOpen] = useState(false);
+    const [qrEmployee, setQrEmployee] = useState<Employee | null>(null);
+    const qrRef = useRef<HTMLDivElement>(null);
+    const [realCompanyCode, setRealCompanyCode] = useState<string | null>(null);
+    const userStr = localStorage.getItem('user');
+    
+    const currentUser = userStr ? JSON.parse(userStr) : null;
+    const companyId =
+        typeof currentUser?.company === 'string'
+            ? currentUser.company
+            : currentUser?.company?._id;
+    const fetchData = async () => {
+        setLoading(true);
+        try {
+            if (!companyId) {
+                console.error('Lỗi: Tài khoản này chưa liên kết Công ty.');
+                setLoading(false);
+                return;
+            }
 
-  const fetchData = async () => {
-    setLoading(true);
-    try {
-      const userStr = localStorage.getItem("user");
-      const currentUser = userStr ? JSON.parse(userStr) : null;
-      const companyId =
-        typeof currentUser?.company === "string"
-          ? currentUser.company
-          : currentUser?.company?._id;
+            const usersRes = await api.get(`/users/company/id/${companyId}`);
+            const rawUsers = Array.isArray(usersRes.data)
+                ? usersRes.data
+                : usersRes.data?.data || [];
+            console.log('userres', usersRes.data)
+            const mappedEmployees: Employee[] = rawUsers.map((u: UserResponse) => ({
+                id: u._id,
+                fullName: u.fullName,
+                email: u.email,
+                walletAddress: u.wallet_address || '',
+                status: u.status === 'ACTIVE' ? 'active' : 'inactive',
+                joinDate: u.createdAt,
+                companyId: u.company,
+                role: u.role,
+                avatar:
+                    u.avatar ||
+                    `https://ui-avatars.com/api/?name=${encodeURIComponent(
+                        u.fullName
+                    )}&background=random&color=fff`,
+            }));
+          
+            setEmployees(mappedEmployees);
 
-      console.log("current user", currentUser);
+            const foundCode =
+                currentUser?.companyCode ||
+                currentUser?.company?.code ||
+                rawUsers[0]?.companyCode;
+            if (foundCode) setRealCompanyCode(foundCode);
 
-      console.log("company", companyId);
-      if (!companyId) {
-        console.error("Lỗi: Tài khoản này chưa liên kết Công ty.");
-        setLoading(false);
-        return;
-      }
+            // --- 2. Lấy danh sách Vai trò từ API ---
+            try {
+                const rolesRes = await userService.getAllRoles();
+                setRoles(
+                    Array.isArray(rolesRes) && rolesRes.length > 0
+                        ? rolesRes
+                        : ['ADMIN', 'STAFF']
+                );
+            } catch (err) {
+                console.warn('Không tải được danh sách roles, sử dụng mặc định.', err);
+                setRoles(['ADMIN', 'STAFF']);
+            }
+        } catch (error) {
+            console.error('Lỗi chung:', error);
+        } finally {
+            setLoading(false);
+        }
+    };
 
-      const usersRes = await api.get(`/users/company/id/${companyId}`);
-      const rawUsers = Array.isArray(usersRes.data)
-        ? usersRes.data
-        : usersRes.data?.data || [];
-      console.log("userres", usersRes.data);
-      const mappedEmployees: Employee[] = rawUsers.map((u: UserResponse) => ({
-        id: u._id,
-        fullName: u.fullName,
-        email: u.email,
-        walletAddress: u.wallet_address || "",
-        status: u.status === "ACTIVE" ? "active" : "inactive",
-        joinDate: u.createdAt,
-        companyId: u.company,
-        role: u.role,
-        avatar:
-          u.avatar ||
-          `https://ui-avatars.com/api/?name=${encodeURIComponent(
-            u.fullName
-          )}&background=random&color=fff`,
-      }));
+    useEffect(() => {
+        fetchData();
+    }, []);
 
-      setEmployees(mappedEmployees);
+    const handleRoleFilterChange = async (role: string) => {
+        setFilterRole(role);
+        setLoading(true);
+        try {
+            if (!companyId) return;
+            if (role === 'ALL') {
+                await fetchData();
+                return;
+            }
+            const res = await userService.getUsersByRole(role, companyId);
+            const mapped = Array.isArray(res)
+                ? res.map((u: any) => ({
+                      id: u._id || u.id,
+                      fullName: u.fullName,
+                      email: u.email,
+                      walletAddress: u.walletAddress || '',
+                      status: u.status === 'ACTIVE' ? 'active' : 'inactive',
+                      joinDate: u.createdAt,
+                      department: u.department,
+                      companyId: u.company,
+                      role: u.role,
+                      avatar:
+                          u.avatar ||
+                          `https://ui-avatars.com/api/?name=${encodeURIComponent(
+                              u.fullName
+                          )}&background=random&color=fff`,
+                  }))
+                : [];
+            setEmployees(mapped);
+        } catch (err) {
+            console.error('Lỗi lọc theo role:', err);
+            toastService.error('Không thể lọc theo vai trò');
+        } finally {
+            setLoading(false);
+        }
+    };
 
-      const foundCode =
-        currentUser?.companyCode ||
-        currentUser?.company?.code ||
-        rawUsers[0]?.companyCode;
-      if (foundCode) setRealCompanyCode(foundCode);
+    // --- LOGIC LỌC ĐÃ SỬA ---
+    const filteredEmployees = employees.filter((employee) => {
+        const searchLower = searchTerm.toLowerCase();
 
-      // --- 2. Lấy danh sách Vai trò từ API ---
-      try {
-        const rolesRes = await userService.getAllRoles();
-        setRoles(
-          Array.isArray(rolesRes) && rolesRes.length > 0
-            ? rolesRes
-            : ["ADMIN", "STAFF"]
+        const matchesSearch =
+            (employee.fullName?.toLowerCase() || '').includes(searchLower) ||
+            (employee.email?.toLowerCase() || '').includes(searchLower) ||
+            (employee.position?.toLowerCase() || '').includes(searchLower) ||
+            (employee.role?.toLowerCase() || '').includes(searchLower);
+
+        const matchesRole = filterRole === 'ALL' || (employee.role || '') === filterRole;
+
+        return matchesSearch && matchesRole;
+    });
+
+    const getStatusColor = (status: string) => {
+        return status === 'active'
+            ? 'bg-green-100 text-green-800'
+            : 'bg-gray-100 text-gray-800';
+    };
+
+    const handleOpenModal = (employee: Employee | null) => {
+        if (employee) {
+            setEditingEmployee(employee);
+            setFormData({
+                fullName: employee.fullName,
+                email: employee.email,
+                walletAddress: employee.walletAddress,
+                // department: employee.department,
+                status: employee.status,
+                avatar: employee.avatar,
+                role: (employee as any).role || 'STAFF',
+            });
+        } else {
+            setEditingEmployee(null);
+            setFormData({
+                ...defaultEmployeeForm,
+                role: roles.includes('STAFF') ? 'STAFF' : roles[0] || 'STAFF',
+            });
+        }
+        setIsModalOpen(true);
+    };
+
+    const handleCloseModal = () => {
+        setIsModalOpen(false);
+        setEditingEmployee(null);
+        setFormData(defaultEmployeeForm);
+    };
+
+    const handleOpenQr = (employee: Employee) => {
+        setQrEmployee(employee);
+        setQrModalOpen(true);
+    };
+
+    const downloadQRCode = () => {
+        const canvas = qrRef.current?.querySelector('canvas');
+        if (canvas && qrEmployee) {
+            const url = canvas.toDataURL();
+            const a = document.createElement('a');
+            const safeName = qrEmployee.fullName
+                .replace(/[^a-z0-9]/gi, '_')
+                .toLowerCase();
+            a.download = `QR_${safeName}.png`;
+            a.href = url;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+        }
+    };
+
+    const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+        const { name, value } = e.target;
+        setFormData((prev) => ({ ...prev, [name]: value }));
+    };
+
+    const handleGenerateAvatar = () => {
+        const name = formData.fullName || 'User';
+        const newAvatarUrl = `https://ui-avatars.com/api/?name=${encodeURIComponent(
+            name
+        )}&background=random&color=fff&size=128&bold=true`;
+        setFormData((prev) => ({ ...prev, avatar: newAvatarUrl }));
+    };
+
+    const handleSubmit = async (e: FormEvent) => {
+        e.preventDefault();
+        if (!formData.role) {
+            toastService.error('Vui lòng chọn vai trò!');
+            return;
+        }
+
+        setIsSubmitting(true);
+        try {
+            let codeToSend = realCompanyCode;
+            if (!codeToSend) {
+                const userStr = localStorage.getItem('user');
+                const currentUser = userStr ? JSON.parse(userStr) : null;
+                codeToSend =
+                    currentUser?.companyCode || currentUser?.company?.code || 'HONG';
+            }
+
+            const payload = {
+                ...formData,
+                role: formData.role,
+                status: formData.status === 'active' ? 'ACTIVE' : 'INACTIVE',
+            };
+
+            if (editingEmployee) {
+                await api.patch(`/users/${editingEmployee.id}`, payload);
+                toastService.success('Cập nhật thành công!');
+            } else {
+                const newPayload = {
+                    ...payload,
+                    password: '123456@Default',
+                    companyCode: codeToSend,
+                    status: 'INACTIVE',
+                };
+                await api.post('/users', newPayload);
+                toastService.success('Thêm nhân viên thành công!');
+            }
+            await fetchData();
+            handleCloseModal();
+        } catch (error: any) {
+            console.error('Lỗi:', error);
+            const msg =
+                error?.response?.data?.message || error?.message || 'Có lỗi xảy ra';
+            toastService.error(Array.isArray(msg) ? msg.join('\n') : String(msg));
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
+
+    if (loading)
+        return (
+            <div className='p-10 text-center flex items-center justify-center gap-2'>
+                <Loader2 className='animate-spin' /> Đang tải dữ liệu...
+            </div>
         );
       } catch (err) {
         console.warn("Không tải được danh sách roles, sử dụng mặc định.", err);
