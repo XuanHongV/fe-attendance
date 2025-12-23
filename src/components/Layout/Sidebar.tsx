@@ -1,10 +1,20 @@
-import React from 'react';
-import { useSelector } from 'react-redux';
-import { RootState } from '../../store/store';
-import { 
-  Home, Users, Building, Clock, DollarSign, Calendar, Briefcase, Camera, 
-  ShieldCheck, User, X, LogOut 
-} from 'lucide-react';
+import React from "react";
+import { useSelector } from "react-redux";
+import { RootState } from "../../store/store";
+import {
+  Home,
+  Users,
+  Building,
+  Clock,
+  DollarSign,
+  Calendar,
+  Briefcase,
+  Camera,
+  ShieldCheck,
+  User,
+  X,
+  LogOut,
+} from "lucide-react";
 
 interface SidebarProps {
   activeTab: string;
@@ -15,19 +25,19 @@ interface SidebarProps {
 }
 
 const adminItems = [
-  { id: 'dashboard', label: 'Trang tổng quan', icon: Home },
-  { id: 'employees', label: 'Quản lý Nhân viên', icon: Users },
-  { id: 'positions', label: 'Quản lý Vị trí', icon: Building },
-  { id: 'shifts', label: 'Cấu hình Ca', icon: Briefcase },
-  { id: 'schedule', label: 'Phân Ca', icon: Calendar },
-  { id: 'attendance', label: 'Quản lý Chấm công', icon: Clock },
-  { id: 'payroll', label: 'Quản lý Bảng lương', icon: DollarSign },
+  { id: "dashboard", label: "Trang tổng quan", icon: Home },
+  { id: "employees", label: "Quản lý Nhân viên", icon: Users },
+  { id: "positions", label: "Quản lý Vị trí", icon: Building },
+  { id: "shifts", label: "Cấu hình Ca", icon: Briefcase },
+  { id: "schedule", label: "Phân Ca", icon: Calendar },
+  { id: "attendance", label: "Quản lý Chấm công", icon: Clock },
+  { id: "payroll", label: "Quản lý Bảng lương", icon: DollarSign },
 ];
 
 const staffItems = [
-  { id: 'staff/shift', label: 'Lịch làm việc', icon: Calendar }, 
-  { id: 'staff/timekeeping', label: 'Chấm công (Camera)', icon: Camera },
-  { id: 'staff/payroll', label: 'Lương của tôi', icon: DollarSign },
+  { id: "staff/shift", label: "Lịch làm việc", icon: Calendar },
+  { id: "staff/timekeeping", label: "Chấm công (Camera)", icon: Camera },
+  { id: "staff/payroll", label: "Lương của tôi", icon: DollarSign },
 ];
 
 export const Sidebar: React.FC<SidebarProps> = ({ 
@@ -38,7 +48,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onLogout 
 }) => {
   const { user } = useSelector((state: RootState) => state.auth);
-  const isManagement = user?.role === 'ADMIN' || user?.role === 'MANAGER';
+  const isManagement = user?.role === "ADMIN" || user?.role === "MANAGER";
   const menuItems = isManagement ? adminItems : staffItems;
 
   return (
@@ -92,7 +102,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </p> */}
           {menuItems.map((item) => {
             const Icon = item.icon;
-            const isActive = activeTab === item.id || activeTab.startsWith(item.id + '/');
+            const isActive =
+              activeTab === item.id || activeTab.startsWith(item.id + "/");
 
             return (
               <button

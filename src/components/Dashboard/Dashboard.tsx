@@ -6,6 +6,9 @@ import {
 import { MetricCard } from './MetricCard'; 
 import api from '../../services/apiService';
 
+/* =======================
+   TYPES & INTERFACES
+======================= */
 interface DashboardStats {
   totalEmployees: number;
   totalPositions: number;
@@ -15,20 +18,38 @@ interface DashboardStats {
 
 interface RecentAttendance {
   id: string;
-  user: { fullName: string; _id: string };
+  employee: {
+    name: string;
+    avatar: string;
+  };
   date: string;
-  checkInTime: string;
-  checkOutTime: string;
+  check_in_time: string | null;
+  check_out_time: string | null;
   status: string;
-  lateMinutes?: number;
+  work_hours: number;
 }
 
+/* =======================
+   HELPERS
+======================= */
+const formatTime = (iso?: string | null) => {
+  if (!iso) return "--:--";
+  return new Date(iso).toLocaleTimeString("vi-VN", {
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  });
+};
+
+/* =======================
+   COMPONENT
+======================= */
 export default function Dashboard() {
   const [stats, setStats] = useState<DashboardStats>({
     totalEmployees: 0,
     totalPositions: 0,
     totalPayrollMonth: 0,
-    aiAlerts: 0
+    aiAlerts: 0,
   });
   const [recentAttendances, setRecentAttendances] = useState<RecentAttendance[]>([]);
   const [loading, setLoading] = useState(true);
