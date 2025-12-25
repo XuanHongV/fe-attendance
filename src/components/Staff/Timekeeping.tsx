@@ -1,243 +1,220 @@
-import React, { useRef, useState, useCallback, useEffect } from 'react';
-import Webcam from 'react-webcam';
-
-const WebcamComponent = React.forwardRef((props: any, ref: any) => (
-  <Webcam {...props} ref={ref} />
-));
-WebcamComponent.displayName = 'WebcamComponent';
-import { useSelector } from 'react-redux';
-import { RootState } from '../../store/store';
-import api from '../../services/apiService';
-import { Clock, MapPin, Calendar, CheckCircle, AlertTriangle } from 'lucide-react';
-
-
-interface Shift {
-  _id: string;
-  name: string;
-  start_time: string;
-  end_time: string;
-}
-
-interface ShiftAssignment {
-  _id: string;
-  work_date: string;
-  shift: Shift;
-  status: string;
-  location?: string;
-}
+import React, { useState, useEffect } from "react";
+import { Scanner } from "@yudiel/react-qr-scanner"; // Import thư viện quét mới
+import { useSelector } from "react-redux";
+import { RootState } from "../../store/store";
+import api from "../../services/apiService";
+import {
+  Clock,
+  MapPin,
+  Calendar,
+  CheckCircle,
+  AlertTriangle,
+  QrCode,
+  ArrowLeft,
+} from "lucide-react";
 
 export const Timekeeping = () => {
-  const webcamRef = useRef<any>(null);
-  const [imgSrc, setImgSrc] = useState<string | null>(null);
+  const [isScanning, setIsScanning] = useState(false); // Trạng thái mở camera quét
   const [loading, setLoading] = useState(false);
-  const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
-  const [todayShifts, setTodayShifts] = useState<ShiftAssignment[]>([]);
-  const [selectedAssignmentId, setSelectedAssignmentId] = useState<string | null>(null);
+  const [message, setMessage] = useState<{
+    type: "success" | "error";
+    text: string;
+  } | null>(null);
+  const [todayShifts, setTodayShifts] = useState<any[]>([]);
   const [isLoadingShifts, setIsLoadingShifts] = useState(true);
   const { user } = useSelector((state: RootState) => state.auth);
+
+  // 1. Lấy danh sách ca làm việc để nhân viên biết hôm nay mình làm ca nào
   useEffect(() => {
     const fetchTodayShifts = async () => {
       if (!user?._id) return;
-      
       try {
         setIsLoadingShifts(true);
         const response = await api.get(`/shift-assignments/user/${user._id}`);
-        const allShifts = Array.isArray(response.data) ? response.data : (response.data?.data || []);
-        const todayStr = new Date().toISOString().split('T')[0];
-        const shiftsToday = allShifts.filter((item: ShiftAssignment) => 
-            item.work_date.startsWith(todayStr)
+        const allShifts = Array.isArray(response.data)
+          ? response.data
+          : response.data?.data || [];
+        const todayStr = new Date().toISOString().split("T")[0];
+        const shiftsToday = allShifts.filter((item: any) =>
+          item.work_date.startsWith(todayStr)
         );
-
         setTodayShifts(shiftsToday);
-        if (shiftsToday.length === 1) {
-            setSelectedAssignmentId(shiftsToday[0]._id);
-        }
-
       } catch (error) {
         console.error("Lỗi tải ca làm việc:", error);
       } finally {
         setIsLoadingShifts(false);
       }
     };
-
     fetchTodayShifts();
   }, [user]);
 
-  const capture = useCallback(() => {
-    if (webcamRef.current) {
-      const imageSrc = webcamRef.current.getScreenshot();
-      setImgSrc(imageSrc);
-    }
-  }, [webcamRef]);
-
-  const handleCheckIn = async () => {
-    if (!imgSrc) return;
-    if (!selectedAssignmentId) {
-        setMessage({ type: 'error', text: 'Vui lòng chọn Ca làm việc trước khi chấm công!' });
-        return;
-    }
+  // 2. Hàm xử lý khi quét được mã QR thành công
+  const handleScan = async (text: string) => {
+    if (!text || loading) return;
 
     setLoading(true);
+    setIsScanning(false); // Đóng camera sau khi quét trúng
     setMessage(null);
 
     try {
-      await api.post('/attendance/check-in', {
-        image: imgSrc,
-        timestamp: new Date().toISOString(),
-        shiftAssignmentId: selectedAssignmentId, 
+      // Gửi token quét được lên API verify-qr mà bạn đã viết ở backend
+      const response = await api.post("/attendance/verify-qr", { token: text });
+
+      const result = response.data;
+      setMessage({
+        type: "success",
+        text: result.message || "Điểm danh thành công!",
       });
 
-      setMessage({ type: 'success', text: 'Chấm công thành công!' });
-      setImgSrc(null);
+      // Phát âm thanh báo hiệu
+      new Audio("https://www.soundjay.com/button/beep-07.wav")
+        .play()
+        .catch(() => {});
     } catch (error: any) {
-      setMessage({ type: 'error', text: 'Chấm công thất bại: ' + (error.response?.data?.message || 'Lỗi hệ thống') });
+      setMessage({
+        type: "error",
+        text:
+          error.response?.data?.message || "Mã QR không hợp lệ hoặc đã hết hạn",
+      });
+      new Audio("https://www.soundjay.com/button/button-10.wav")
+        .play()
+        .catch(() => {});
     } finally {
       setLoading(false);
     }
   };
 
-  const currentDateDisplay = new Intl.DateTimeFormat('vi-VN', { weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric' }).format(new Date());
+  const currentDateDisplay = new Intl.DateTimeFormat("vi-VN", {
+    weekday: "long",
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  }).format(new Date());
+
+  // Giao diện Camera quét QR
+  if (isScanning) {
+    return (
+      <div className="fixed inset-0 bg-black z-50 flex flex-col items-center justify-center p-4">
+        <button
+          onClick={() => setIsScanning(false)}
+          className="absolute top-6 left-6 text-white flex items-center gap-2 bg-white/10 px-4 py-2 rounded-lg"
+        >
+          <ArrowLeft size={20} /> Quay lại
+        </button>
+
+        <div className="text-center mb-8">
+          <h2 className="text-2xl font-bold text-white uppercase tracking-wider">
+            Quét mã QR điểm danh
+          </h2>
+          <p className="text-blue-400 mt-2">
+            Vui lòng đưa mã QR vào khung hình
+          </p>
+        </div>
+
+        <div className="w-full max-w-md aspect-square overflow-hidden rounded-3xl border-4 border-blue-500 relative">
+          <Scanner
+            onScan={(result) => {
+              if (result && result.length > 0) {
+                handleScan(result[0].rawValue);
+              }
+            }}
+            allowMultiple={false}
+            scanDelay={2000}
+          />
+          {/* Khung giả lập quét */}
+          <div className="absolute inset-10 border-2 border-white/30 rounded-xl pointer-events-none border-dashed animate-pulse"></div>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="p-6 max-w-5xl mx-auto min-h-screen bg-gray-50/50">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-3">
-            <div className="p-2 bg-blue-100 rounded-lg text-blue-600">
-                <Calendar size={32} />
-            </div>
-            Chấm công Khuôn mặt
-        </h1>
-        <p className="text-gray-500 mt-2 pl-1">Hôm nay, {currentDateDisplay}</p>
+    <div className="p-6 max-w-4xl mx-auto min-h-screen">
+      <div className="mb-8 flex justify-between items-end">
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-3">
+            <QrCode className="text-blue-600" size={36} />
+            Hệ thống Điểm danh
+          </h1>
+          <p className="text-gray-500 mt-1">{currentDateDisplay}</p>
+        </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        <div className="flex flex-col gap-4">
-            <div className="bg-white p-4 rounded-2xl shadow-sm border border-gray-200">
-            <div className="relative rounded-xl overflow-hidden bg-black aspect-[4/3] flex items-center justify-center shadow-inner">
-                {imgSrc ? (
-                <img src={imgSrc} alt="Captured" className="w-full h-full object-cover" />
-                ) : (
-                <WebcamComponent
-                    audio={false}
-                    ref={webcamRef}
-                    screenshotFormat="image/jpeg"
-                    className="w-full h-full object-cover"
-                    videoConstraints={{ facingMode: "user" }}
-                />
-                )}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        {/* Cột trái: Nút bấm chính */}
+        <div className="md:col-span-2 space-y-6">
+          <div className="bg-white p-8 rounded-3xl shadow-xl border border-gray-100 flex flex-col items-center justify-center text-center">
+            <div className="w-24 h-24 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center mb-6">
+              <QrCode size={48} />
             </div>
+            <h3 className="text-xl font-bold text-gray-800 mb-2">
+              Sẵn sàng chấm công?
+            </h3>
+            <p className="text-gray-500 mb-8 max-w-xs">
+              Sử dụng camera để quét mã QR được cung cấp bởi quản lý tại quầy
+              hoặc trên máy tính.
+            </p>
 
-            <div className="mt-4 flex gap-3">
-                {!imgSrc ? (
-                <button
-                    onClick={capture}
-                    className="flex-1 bg-blue-600 text-white py-3.5 rounded-xl font-bold hover:bg-blue-700 transition shadow-lg shadow-blue-200"
-                >
-                Chụp ảnh
-                </button>
-                ) : (
-                <>
-                    <button
-                    onClick={() => setImgSrc(null)}
-                    className="flex-1 bg-gray-100 text-gray-700 py-3.5 rounded-xl font-bold hover:bg-gray-200 transition"
-                    >
-                    Chụp lại
-                    </button>
-                    <button
-                    onClick={handleCheckIn}
-                    disabled={loading || !selectedAssignmentId}
-                    className="flex-1 bg-green-600 text-white py-3.5 rounded-xl font-bold hover:bg-green-700 transition shadow-lg shadow-green-200 disabled:opacity-50 disabled:shadow-none flex items-center justify-center gap-2"
-                    >
-                    {loading ? <span className="animate-spin">⏳</span> : <CheckCircle size={20}/>}
-                    {loading ? 'Đang xử lý...' : 'Xác nhận'}
-                    </button>
-                </>
-                )}
-            </div>
-            </div>
-    
+            <button
+              onClick={() => setIsScanning(true)}
+              disabled={loading}
+              className="w-full py-4 bg-blue-600 text-white rounded-2xl font-bold text-lg hover:bg-blue-700 transition-all shadow-lg shadow-blue-200 flex items-center justify-center gap-3"
+            >
+              {loading ? "Đang xử lý..." : "BẮT ĐẦU QUÉT MÃ QR"}
+            </button>
+
             {message && (
-                <div className={`p-4 rounded-xl border flex items-start gap-3 animate-in fade-in slide-in-from-top-2 ${message.type === 'success' ? 'bg-green-50 border-green-200 text-green-700' : 'bg-red-50 border-red-200 text-red-700'}`}>
-                    {message.type === 'error' ? <AlertTriangle size={20} /> : <CheckCircle size={20} />}
-                    <div>
-                        <p className="font-bold">{message.type === 'success' ? 'Thành công' : 'Lỗi'}</p>
-                        <p className="text-sm opacity-90">{message.text}</p>
-                    </div>
-                </div>
+              <div
+                className={`mt-6 w-full p-4 rounded-xl border flex items-center gap-3 ${
+                  message.type === "success"
+                    ? "bg-green-50 border-green-200 text-green-700"
+                    : "bg-red-50 border-red-200 text-red-700"
+                }`}
+              >
+                {message.type === "success" ? (
+                  <CheckCircle />
+                ) : (
+                  <AlertTriangle />
+                )}
+                <span className="font-medium">{message.text}</span>
+              </div>
             )}
+          </div>
         </div>
-        <div className="space-y-6">
-           <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200 h-full">
-             <h3 className="font-bold text-gray-800 text-lg mb-4 flex items-center gap-2">
-                <Clock className="text-blue-500" size={20} />
-                Chọn Ca Làm Việc Hôm Nay
-             </h3>
 
-             {isLoadingShifts ? (
-                 <div className="text-center py-10 text-gray-500">Đang tải lịch...</div>
-             ) : todayShifts.length === 0 ? (
-                 <div className="text-center py-10 bg-gray-50 rounded-xl border border-dashed border-gray-300">
-                     <p className="text-gray-500 font-medium">Bạn không có ca làm việc nào hôm nay.</p>
-                 </div>
-             ) : (
-                 <div className="space-y-3">
-                     {todayShifts.map((assignment) => {
-                         const isSelected = selectedAssignmentId === assignment._id;
-                         return (
-                             <div 
-                                key={assignment._id}
-                                onClick={() => setSelectedAssignmentId(assignment._id)}
-                                className={`
-                                    relative p-4 rounded-xl border-2 cursor-pointer transition-all duration-200 group
-                                    ${isSelected 
-                                        ? 'border-blue-500 bg-blue-50 ring-2 ring-blue-200 ring-offset-1' 
-                                        : 'border-gray-100 hover:border-blue-300 hover:bg-gray-50'
-                                    }
-                                `}
-                             >
-                                 <div className="flex justify-between items-start">
-                                     <div>
-                                         <h4 className={`font-bold text-lg ${isSelected ? 'text-blue-700' : 'text-gray-800'}`}>
-                                             {assignment.shift.name}
-                                         </h4>
-                                         <p className="text-gray-500 flex items-center gap-1.5 mt-1 text-sm font-medium">
-                                             <Clock size={14} />
-                                             {assignment.shift.start_time} - {assignment.shift.end_time}
-                                         </p>
-                                     </div>
-                                     <div className={`
-                                         w-5 h-5 rounded-full border-2 flex items-center justify-center
-                                         ${isSelected ? 'border-blue-500 bg-blue-500' : 'border-gray-300'}
-                                     `}>
-                                         {isSelected && <div className="w-2 h-2 bg-white rounded-full" />}
-                                     </div>
-                                 </div>
-                                 
-                                 <div className="mt-3 pt-3 border-t border-gray-200/50 flex items-center justify-between text-sm">
-                                     <span className="flex items-center gap-1.5 text-gray-500">
-                                         <MapPin size={14} className="text-red-400" />
-                                         {assignment.location || "Văn phòng chính"}
-                                     </span>
-                                     <span className={`
-                                         px-2 py-0.5 rounded text-xs font-bold uppercase
-                                         ${assignment.status === 'COMPLETED' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}
-                                     `}>
-                                         {assignment.status === 'ASSIGNED' ? 'Chưa chấm' : assignment.status}
-                                     </span>
-                                 </div>
-                             </div>
-                         );
-                     })}
-                 </div>
-             )}
+        {/* Cột phải: Thông tin ca làm việc */}
+        <div className="space-y-4">
+          <div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100">
+            <h4 className="font-bold text-gray-800 mb-4 flex items-center gap-2">
+              <Clock size={18} className="text-blue-500" /> Ca làm việc hôm nay
+            </h4>
 
-             {!selectedAssignmentId && todayShifts.length > 0 && (
-                 <p className="text-red-500 text-xs mt-4 font-medium flex items-center gap-1 animate-pulse">
-                     <AlertTriangle size={12} />
-                     Vui lòng chọn ca làm việc để tiếp tục
-                 </p>
-             )}
-           </div>
+            {isLoadingShifts ? (
+              <p className="text-gray-400 text-sm italic">Đang tải...</p>
+            ) : todayShifts.length === 0 ? (
+              <p className="text-gray-500 text-sm">Hôm nay bạn không có ca.</p>
+            ) : (
+              <div className="space-y-3">
+                {todayShifts.map((item) => (
+                  <div
+                    key={item._id}
+                    className="p-3 bg-gray-50 rounded-xl border border-gray-100"
+                  >
+                    <p className="font-bold text-gray-800">{item.shift.name}</p>
+                    <p className="text-xs text-gray-500 flex items-center gap-1 mt-1">
+                      <Clock size={12} /> {item.shift.start_time} -{" "}
+                      {item.shift.end_time}
+                    </p>
+                    <div className="mt-2 flex justify-between items-center">
+                      <span className="text-[10px] bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-bold uppercase">
+                        {item.status}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>

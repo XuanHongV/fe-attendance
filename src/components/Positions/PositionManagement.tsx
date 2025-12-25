@@ -1,290 +1,386 @@
 import React, { useState, useEffect, FormEvent } from 'react';
-import { 
-  Briefcase, 
-  Search, 
-  Plus, 
-  Edit, 
-  Trash2, 
-  X, 
-  Loader2, 
-  DollarSign, 
-  MoreHorizontal
+import {
+    Briefcase,
+    Search,
+    Plus,
+    Edit,
+    Trash2,
+    X,
+    Loader2,
+    DollarSign,
+    MoreHorizontal,
+    CheckCircle2,
+    AlertCircle,
 } from 'lucide-react';
 import api from '../../services/apiService';
 
-// 1. Cập nhật Interface khớp với DTO Backend
 interface Position {
-  _id: string;
-  code: string;        // Khớp DTO
-  name: string;        // Khớp DTO
-  hourlyRate: number;  // Khớp DTO (thay vì baseSalary)
-  isActive: boolean;   // Khớp DTO
+    _id: string;
+    code: string;
+    name: string;
+    hourlyRate: number;
+    isActive: boolean;
 }
 
 export const PositionManagement = () => {
-  const [positions, setPositions] = useState<Position[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [searchTerm, setSearchTerm] = useState('');
-  
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editingPosition, setEditingPosition] = useState<Position | null>(null);
-  
-  // 2. Cập nhật State Form khớp DTO
-  const [formData, setFormData] = useState({
-    code: '',
-    name: '',
-    hourlyRate: 0, // Dùng hourlyRate
-    isActive: true
-  });
+    const [positions, setPositions] = useState<Position[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const [searchTerm, setSearchTerm] = useState('');
+    const [isModalOpen, setIsModalOpen] = useState(false);
+    const [editingPosition, setEditingPosition] = useState<Position | null>(null);
 
-  const fetchPositions = async () => {
-    setLoading(true);
-    try {
-      const response = await api.get('/positions');
-      const data = Array.isArray(response.data) ? response.data : (response.data?.data || []);
-      setPositions(data);
-    } catch (error) {
-      console.error("Lỗi tải danh sách chức vụ:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchPositions();
-  }, []);
-
-  const handleOpenModal = (position?: Position) => {
-    if (position) {
-      setEditingPosition(position);
-      setFormData({
-        code: position.code,
-        name: position.name,
-        hourlyRate: position.hourlyRate || 0, // Map dữ liệu cũ
-        isActive: position.isActive
-      });
-    } else {
-      setEditingPosition(null);
-      setFormData({
+    const [formData, setFormData] = useState({
         code: '',
         name: '',
         hourlyRate: 0,
-        isActive: true
-      });
-    }
-    setIsModalOpen(true);
-  };
+        isActive: true,
+    });
 
-  const handleDelete = async (id: string) => {
-    if (!window.confirm("Bạn có chắc chắn muốn xóa chức vụ này?")) return;
-    try {
-      await api.delete(`/positions/${id}`);
-      setPositions(prev => prev.filter(p => p._id !== id));
-    } catch (error: any) {
-      alert(error.response?.data?.message || "Lỗi khi xóa chức vụ");
-    }
-  };
+    const fetchPositions = async () => {
+        setLoading(true);
+        try {
+            const response = await api.get('/positions');
+            const data = Array.isArray(response.data)
+                ? response.data
+                : response.data?.data || [];
+            setPositions(data);
+        } catch (error) {
+            console.error('Lỗi tải danh sách chức vụ:', error);
+        } finally {
+            setLoading(false);
+        }
+    };
 
-  // 3. Sửa hàm Submit để gửi đúng Payload
-  const handleSubmit = async (e: FormEvent) => {
-    e.preventDefault();
-    setIsSubmitting(true);
+    useEffect(() => {
+        fetchPositions();
+    }, []);
 
-    try {
-      // CHUẨN BỊ PAYLOAD KHỚP DTO
-      const payload = {
-        code: formData.code.trim().toUpperCase(), // Backend cần string
-        name: formData.name.trim(),               // Backend cần string
-        hourlyRate: Number(formData.hourlyRate),  // QUAN TRỌNG: Ép kiểu Number
-        isActive: Boolean(formData.isActive)      // Backend cần boolean
-        // Lưu ý: Không gửi description vì DTO không có
-      };
+    const handleOpenModal = (position?: Position) => {
+        if (position) {
+            setEditingPosition(position);
+            setFormData({
+                code: position.code,
+                name: position.name,
+                hourlyRate: position.hourlyRate || 0,
+                isActive: position.isActive,
+            });
+        } else {
+            setEditingPosition(null);
+            setFormData({ code: '', name: '', hourlyRate: 0, isActive: true });
+        }
+        setIsModalOpen(true);
+    };
 
-      if (editingPosition) {
-        await api.patch(`/positions/${editingPosition._id}`, payload);
-        alert("Cập nhật thành công!");
-      } else {
-        await api.post('/positions', payload);
-        alert("Thêm mới thành công!");
-      }
-      
-      setIsModalOpen(false);
-      fetchPositions(); 
-    } catch (error: any) {
-      console.error("Lỗi lưu:", error);
-      const errorData = error.response?.data;
-      if (errorData && Array.isArray(errorData.message)) {
-          alert(`Lỗi dữ liệu:\n- ${errorData.message.join('\n- ')}`);
-      } else {
-          alert(errorData?.message || "Có lỗi xảy ra");
-      }
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
+    const handleDelete = async (id: string) => {
+        if (!window.confirm('Bạn có chắc chắn muốn xóa chức vụ này?')) return;
+        try {
+            await api.delete(`/positions/${id}`);
+            setPositions((prev) => prev.filter((p) => p._id !== id));
+        } catch (error: any) {
+            alert(error.response?.data?.message || 'Lỗi khi xóa chức vụ');
+        }
+    };
 
-  const formatCurrency = (amount: number) => 
-    new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(amount);
+    const handleSubmit = async (e: FormEvent) => {
+        e.preventDefault();
+        setIsSubmitting(true);
+        try {
+            const payload = {
+                code: formData.code.trim().toUpperCase(),
+                name: formData.name.trim(),
+                hourlyRate: Number(formData.hourlyRate),
+                isActive: Boolean(formData.isActive),
+            };
 
-  const filteredPositions = positions.filter(p => 
-    p.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-    p.code.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+            if (editingPosition) {
+                await api.patch(`/positions/${editingPosition._id}`, payload);
+            } else {
+                await api.post('/positions', payload);
+            }
+            setIsModalOpen(false);
+            fetchPositions();
+        } catch (error: any) {
+            const errorData = error.response?.data;
+            alert(errorData?.message || 'Có lỗi xảy ra');
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
 
-  if (loading) return (
-    <div className="flex items-center justify-center min-h-screen bg-gray-50">
-      <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
-    </div>
-  );
+    const formatCurrency = (amount: number) =>
+        new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(
+            amount
+        );
 
-  return (
-    <div className="p-6 bg-gray-50 min-h-screen font-sans">
-      {/* Header */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-            <Briefcase className="w-8 h-8 text-blue-600" />
-            Quản lý Chức vụ
-          </h1>
-          <p className="text-gray-500 text-sm mt-1">Thiết lập các vị trí và mức lương theo giờ.</p>
+    const filteredPositions = positions.filter(
+        (p) =>
+            p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            p.code.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+
+    if (loading)
+        return (
+            <div className='p-10 text-center min-h-screen flex flex-col items-center justify-center gap-4 bg-slate-50'>
+                <Loader2 className='animate-spin text-indigo-600 w-10 h-10' />
+                <p className='text-indigo-900 font-bold uppercase tracking-widest text-[10px]'>
+                    Đang tải cấu hình chức vụ...
+                </p>
+            </div>
+        );
+
+    return (
+        <div className='p-4 bg-slate-50 min-h-screen font-sans selection:bg-indigo-100 selection:text-indigo-900'>
+            <div className='max-w-7xl mx-auto'>
+                {/* Header Banner - Thu gọn text-xl, p-4 */}
+                <div className='mb-4 flex flex-col md:flex-row md:justify-between md:items-center gap-4 bg-gradient-to-r from-indigo-600 to-blue-500 p-4 rounded-xl shadow-md shadow-blue-200'>
+                    <div>
+                        <h2 className='text-xl font-black text-white tracking-tight flex items-center gap-2'>
+                            <div className='p-1.5 bg-white/20 backdrop-blur-md rounded-lg'>
+                                <Briefcase size={20} className='text-white' />
+                            </div>
+                            Quản lý Chức vụ
+                        </h2>
+                        <p className='text-indigo-100 text-[11px] mt-1 font-medium opacity-90 ml-1 uppercase tracking-wider'>
+                            Thiết lập vị trí & Định mức lương giờ
+                        </p>
+                    </div>
+                    <button
+                        onClick={() => handleOpenModal()}
+                        className='bg-white text-indigo-600 px-4 py-2 rounded-xl hover:bg-indigo-50 transition-all flex items-center gap-2 shadow-md font-bold text-xs uppercase tracking-widest active:scale-95'
+                    >
+                        <Plus size={16} /> <span>Thêm Chức vụ</span>
+                    </button>
+                </div>
+
+                {/* Toolbar - Nhỏ gọn hơn */}
+                <div className='bg-white rounded-xl shadow-sm border border-slate-200 p-3 mb-4 flex flex-col md:flex-row md:items-center justify-between gap-3 relative overflow-hidden'>
+                    <div className='absolute top-0 left-0 h-0.5 w-full bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500'></div>
+
+                    <div className='flex-1 max-w-sm relative group'>
+                        <Search
+                            className='absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-500 transition-colors'
+                            size={16}
+                        />
+                        <input
+                            type='text'
+                            placeholder='Tìm tên hoặc mã chức vụ...'
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                            className='w-full pl-9 pr-3 py-1.5 bg-slate-50 border-transparent focus:border-indigo-500 focus:bg-white focus:ring-2 focus:ring-indigo-500/10 rounded-lg outline-none transition-all font-medium text-xs'
+                        />
+                    </div>
+                </div>
+
+                {/* Grid Content - Sử dụng font-size nhỏ và layout gọn */}
+                <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4'>
+                    {filteredPositions.map((item) => (
+                        <div
+                            key={item._id}
+                            className='group bg-white rounded-xl shadow-sm border border-slate-100 hover:shadow-md hover:border-indigo-100 transition-all duration-300 flex flex-col overflow-hidden relative'
+                        >
+                            <div className='p-4 border-b border-slate-50 flex justify-between items-start bg-slate-50/30'>
+                                <div className='flex items-center gap-2.5'>
+                                    <div className='w-9 h-9 rounded-lg bg-indigo-600 flex items-center justify-center text-white font-black text-sm shadow-indigo-100 shadow-lg group-hover:rotate-6 transition-transform'>
+                                        {item.name.charAt(0).toUpperCase()}
+                                    </div>
+                                    <div>
+                                        <h3 className='font-black text-slate-800 text-sm group-hover:text-indigo-600 transition-colors leading-tight'>
+                                            {item.name}
+                                        </h3>
+                                        <span className='text-[9px] font-black text-slate-400 bg-white border border-slate-100 px-1.5 py-0.5 rounded mt-0.5 inline-block uppercase tracking-tighter'>
+                                            CODE: {item.code}
+                                        </span>
+                                    </div>
+                                </div>
+                                <button className='text-slate-300 hover:text-indigo-600 transition-colors'>
+                                    <MoreHorizontal size={18} />
+                                </button>
+                            </div>
+
+                            <div className='p-4 flex-1'>
+                                <div className='flex items-center justify-between'>
+                                    <div className='flex items-center gap-1.5 text-slate-500'>
+                                        <div className='p-1 bg-emerald-50 text-emerald-600 rounded-md'>
+                                            <DollarSign size={12} />
+                                        </div>
+                                        <span className='text-[10px] font-bold uppercase tracking-wider'>
+                                            Định mức lương
+                                        </span>
+                                    </div>
+                                    <div className='text-right'>
+                                        <span className='font-black text-indigo-600 text-sm'>
+                                            {formatCurrency(item.hourlyRate || 0)}
+                                        </span>
+                                        <span className='text-[9px] font-black text-slate-400 ml-1 uppercase'>
+                                            / giờ
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className='p-3 px-4 border-t border-slate-50 bg-slate-50/50 flex justify-between items-center'>
+                                <span
+                                    className={`text-[9px] font-black uppercase tracking-widest px-2.5 py-1 rounded-full border shadow-sm ${
+                                        item.isActive
+                                            ? 'bg-emerald-50 text-emerald-700 border-emerald-100'
+                                            : 'bg-rose-50 text-rose-700 border-rose-100'
+                                    }`}
+                                >
+                                    {item.isActive ? 'Đang hoạt động' : 'Tạm khóa'}
+                                </span>
+                                <div className='flex gap-1.5'>
+                                    <button
+                                        onClick={() => handleOpenModal(item)}
+                                        className='p-1.5 bg-white border border-slate-200 rounded-lg text-slate-400 hover:text-indigo-600 hover:border-indigo-200 transition-all hover:shadow-sm'
+                                    >
+                                        <Edit size={14} />
+                                    </button>
+                                    <button
+                                        onClick={() => handleDelete(item._id)}
+                                        className='p-1.5 bg-white border border-slate-200 rounded-lg text-slate-400 hover:text-rose-500 hover:border-rose-200 transition-all hover:shadow-sm'
+                                    >
+                                        <Trash2 size={14} />
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+
+                {/* Modal Form - Thu nhỏ và tinh tế */}
+                {isModalOpen && (
+                    <div className='fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-in fade-in duration-300'>
+                        <div className='bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden border border-white'>
+                            <div className='px-6 py-4 bg-gradient-to-r from-indigo-600 to-violet-600 flex justify-between items-center'>
+                                <div>
+                                    <h3 className='text-base font-black text-white uppercase tracking-tight'>
+                                        {editingPosition
+                                            ? 'Cập nhật Chức vụ'
+                                            : 'Thêm Chức vụ Mới'}
+                                    </h3>
+                                    <p className='text-indigo-100 text-[9px] font-bold uppercase tracking-widest opacity-80'>
+                                        Hệ thống phân quyền
+                                    </p>
+                                </div>
+                                <button
+                                    onClick={() => setIsModalOpen(false)}
+                                    className='text-white/60 hover:text-white transition-colors bg-white/10 p-1.5 rounded-full'
+                                >
+                                    <X size={18} />
+                                </button>
+                            </div>
+
+                            <form onSubmit={handleSubmit} className='p-5 space-y-4'>
+                                <div className='grid grid-cols-2 gap-3'>
+                                    <div className='space-y-1'>
+                                        <label className='text-[10px] font-black uppercase tracking-widest text-slate-500 ml-1'>
+                                            Tên Chức vụ
+                                        </label>
+                                        <input
+                                            type='text'
+                                            required
+                                            value={formData.name}
+                                            onChange={(e) =>
+                                                setFormData({
+                                                    ...formData,
+                                                    name: e.target.value,
+                                                })
+                                            }
+                                            className='w-full px-3 py-2 bg-slate-50 border-2 border-transparent focus:border-indigo-500 focus:bg-white rounded-xl outline-none transition-all font-bold text-xs text-slate-700'
+                                        />
+                                    </div>
+                                    <div className='space-y-1'>
+                                        <label className='text-[10px] font-black uppercase tracking-widest text-slate-500 ml-1'>
+                                            Mã định danh
+                                        </label>
+                                        <input
+                                            type='text'
+                                            required
+                                            value={formData.code}
+                                            onChange={(e) =>
+                                                setFormData({
+                                                    ...formData,
+                                                    code: e.target.value.toUpperCase(),
+                                                })
+                                            }
+                                            className='w-full px-3 py-2 bg-slate-50 border-2 border-transparent focus:border-indigo-500 focus:bg-white rounded-xl outline-none transition-all font-black text-xs text-indigo-600 uppercase'
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className='space-y-1'>
+                                    <label className='text-[10px] font-black uppercase tracking-widest text-slate-500 ml-1'>
+                                        Lương theo giờ (VND)
+                                    </label>
+                                    <div className='relative'>
+                                        <div className='absolute left-3 top-1/2 -translate-y-1/2 text-indigo-500 font-bold text-xs'>
+                                            ₫
+                                        </div>
+                                        <input
+                                            type='number'
+                                            min='0'
+                                            required
+                                            value={formData.hourlyRate}
+                                            onChange={(e) =>
+                                                setFormData({
+                                                    ...formData,
+                                                    hourlyRate: Number(e.target.value),
+                                                })
+                                            }
+                                            className='w-full pl-7 pr-3 py-2 bg-slate-50 border-2 border-transparent focus:border-indigo-500 focus:bg-white rounded-xl outline-none transition-all font-black text-xs text-slate-700'
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className='flex items-center gap-2 p-2 bg-slate-50 rounded-xl border border-slate-100'>
+                                    <input
+                                        type='checkbox'
+                                        id='isActive'
+                                        checked={formData.isActive}
+                                        onChange={(e) =>
+                                            setFormData({
+                                                ...formData,
+                                                isActive: e.target.checked,
+                                            })
+                                        }
+                                        className='w-3.5 h-3.5 text-indigo-600 rounded focus:ring-indigo-500 border-slate-300'
+                                    />
+                                    <label
+                                        htmlFor='isActive'
+                                        className='text-[11px] font-bold text-slate-600 cursor-pointer select-none'
+                                    >
+                                        Đang kích hoạt trạng thái làm việc
+                                    </label>
+                                </div>
+
+                                <div className='pt-2 flex gap-2'>
+                                    <button
+                                        type='button'
+                                        onClick={() => setIsModalOpen(false)}
+                                        className='flex-1 py-2.5 bg-slate-100 text-slate-500 rounded-xl font-black uppercase text-[10px] tracking-widest hover:bg-slate-200 transition-all'
+                                    >
+                                        Hủy
+                                    </button>
+                                    <button
+                                        type='submit'
+                                        disabled={isSubmitting}
+                                        className='flex-1 py-2.5 bg-gradient-to-r from-indigo-600 to-violet-600 text-white rounded-xl font-black uppercase text-[10px] tracking-widest shadow-lg shadow-indigo-100 hover:from-indigo-700 transition-all active:scale-95 flex justify-center items-center gap-2 disabled:opacity-70'
+                                    >
+                                        {isSubmitting ? (
+                                            <Loader2 className='animate-spin w-3.5 h-3.5' />
+                                        ) : editingPosition ? (
+                                            'Cập nhật'
+                                        ) : (
+                                            'Tạo mới'
+                                        )}
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                )}
+            </div>
         </div>
-        <button 
-          onClick={() => handleOpenModal()}
-          className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-xl font-medium shadow-lg shadow-blue-200 flex items-center gap-2 transition-all active:scale-95"
-        >
-          <Plus size={18} /> Thêm Chức vụ
-        </button>
-      </div>
-
-      {/* Toolbar */}
-      <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-200 mb-6">
-        <div className="relative w-full max-w-md">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
-          <input 
-            type="text" 
-            placeholder="Tìm kiếm chức vụ..." 
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-100 focus:border-blue-500 outline-none transition-all"
-          />
-        </div>
-      </div>
-
-      {/* Grid Content */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {filteredPositions.map((item) => (
-          <div key={item._id} className="group bg-white rounded-xl shadow-sm border border-gray-200 hover:shadow-md transition-all flex flex-col">
-            <div className="p-5 border-b border-gray-50 flex justify-between items-start">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-lg bg-blue-50 flex items-center justify-center text-blue-600 font-bold text-lg">
-                  {item.name.charAt(0).toUpperCase()}
-                </div>
-                <div>
-                  <h3 className="font-bold text-gray-800 text-lg leading-tight">{item.name}</h3>
-                  <span className="text-xs font-mono text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded mt-1 inline-block">
-                    {item.code}
-                  </span>
-                </div>
-              </div>
-              <button className="text-gray-400 hover:text-gray-600 p-1"><MoreHorizontal size={20} /></button>
-            </div>
-
-            <div className="p-5 flex-1 space-y-4">
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-gray-500 flex items-center gap-2">
-                  <DollarSign size={16} /> Lương theo giờ
-                </span>
-                <span className="font-bold text-gray-900 bg-green-50 text-green-700 px-2 py-1 rounded">
-                  {formatCurrency(item.hourlyRate || 0)}/h
-                </span>
-              </div>
-            </div>
-
-            <div className="p-4 border-t border-gray-50 bg-gray-50/50 rounded-b-xl flex justify-between items-center gap-3">
-               <span className={`text-xs font-bold px-2 py-1 rounded-full ${item.isActive ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
-                 {item.isActive ? 'Hoạt động' : 'Đã khóa'}
-               </span>
-               <div className="flex gap-2">
-                 <button onClick={() => handleOpenModal(item)} className="p-2 bg-white border border-gray-200 rounded-lg text-blue-600 hover:bg-blue-50 transition-colors">
-                    <Edit size={16} />
-                 </button>
-                 <button onClick={() => handleDelete(item._id)} className="p-2 bg-white border border-gray-200 rounded-lg text-red-500 hover:bg-red-50 transition-colors">
-                    <Trash2 size={16} />
-                 </button>
-               </div>
-            </div>
-          </div>
-        ))}
-      </div>
-
-      {/* Modal */}
-      {isModalOpen && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-in fade-in duration-200">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden">
-            <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
-              <h3 className="text-lg font-bold text-gray-800">
-                {editingPosition ? 'Cập nhật Chức vụ' : 'Thêm Chức vụ Mới'}
-              </h3>
-              <button onClick={() => setIsModalOpen(false)} className="text-gray-400 hover:text-gray-600"><X size={20} /></button>
-            </div>
-
-            <form onSubmit={handleSubmit} className="p-6 space-y-5">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-1">
-                  <label className="text-sm font-semibold text-gray-700">Tên Chức vụ <span className="text-red-500">*</span></label>
-                  <input 
-                    type="text" required
-                    value={formData.name}
-                    onChange={(e) => setFormData({...formData, name: e.target.value})}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-100 focus:border-blue-500 outline-none"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <label className="text-sm font-semibold text-gray-700">Mã Chức vụ <span className="text-red-500">*</span></label>
-                  <input 
-                    type="text" required
-                    value={formData.code}
-                    onChange={(e) => setFormData({...formData, code: e.target.value.toUpperCase()})}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-100 focus:border-blue-500 outline-none font-mono"
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-1">
-                <label className="text-sm font-semibold text-gray-700">Lương theo giờ (Hourly Rate) <span className="text-red-500">*</span></label>
-                <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">₫</span>
-                  <input 
-                    type="number" min="0" required
-                    value={formData.hourlyRate}
-                    onChange={(e) => setFormData({...formData, hourlyRate: Number(e.target.value)})}
-                    className="w-full pl-8 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-100 focus:border-blue-500 outline-none font-mono"
-                  />
-                </div>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <input 
-                  type="checkbox" id="isActive"
-                  checked={formData.isActive}
-                  onChange={(e) => setFormData({...formData, isActive: e.target.checked})}
-                  className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500 border-gray-300"
-                />
-                <label htmlFor="isActive" className="text-sm text-gray-700 cursor-pointer select-none">Đang kích hoạt</label>
-              </div>
-
-              <div className="pt-4 flex gap-3">
-                <button type="button" onClick={() => setIsModalOpen(false)} className="flex-1 py-2.5 bg-white border border-gray-200 text-gray-700 rounded-xl font-medium hover:bg-gray-50">Hủy</button>
-                <button type="submit" disabled={isSubmitting} className="flex-1 py-2.5 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 flex justify-center items-center gap-2 disabled:opacity-70">
-                  {isSubmitting && <Loader2 className="animate-spin w-4 h-4" />}
-                  {editingPosition ? 'Cập nhật' : 'Thêm mới'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-    </div>
-  );
+    );
 };

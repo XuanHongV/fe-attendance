@@ -3,6 +3,10 @@ import { Link, useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import { AppDispatch, RootState } from "../../store/store";
 import { registerAdmin, reset } from "../../store/slices/authSlice";
+import { toast } from "react-toastify";
+
+
+
 
 export default function Register() {
   const navigate = useNavigate();
@@ -19,17 +23,21 @@ export default function Register() {
     adminFullName: "",
     adminEmail: "",
     adminPassword: "",
-    confirmPassword: ""
+    confirmPassword: "",
+    treasury_wallet: "",
+    treasury_private_key: "",
   });
   const [localError, setLocalError] = useState("");
 
   useEffect(() => {
     if (isError) {
-      setLocalError(message); 
+      // setLocalError(message);
+      toast.error(message || "Đã có lỗi xảy ra!");
       setTimeout(() => dispatch(reset()), 5000);
     }
     if (isSuccess) {
-      alert(message); 
+      // alert(message);
+      toast.success("Đăng ký thành công! Vui lòng đăng nhập.");
       dispatch(reset());
       navigate("/login");
     }
@@ -53,7 +61,10 @@ export default function Register() {
       adminEmail: formData.adminEmail,
       phone: formData.phone,
       adminPassword: formData.adminPassword,
+
       adminFullName: formData.adminFullName,
+      treasury_wallet: formData.treasury_wallet,
+      treasury_private_key: formData.treasury_private_key,
     };
 
     dispatch(registerAdmin(payload));
@@ -76,48 +87,60 @@ export default function Register() {
 
         <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="md:col-span-2 font-semibold text-blue-600 border-b pb-2">Thông tin Công ty</div>
-          
+
           <div>
             <label className="block text-sm font-medium mb-1">Tên Công ty <span className="text-red-500">*</span></label>
-            <input name="name" type="text" className="w-full border rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500" 
+            <input name="name" type="text" className="w-full border rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500"
               value={formData.name} onChange={handleChange} required placeholder="Vd: Công ty TNHH ABC" />
           </div>
 
           <div>
             <label className="block text-sm font-medium mb-1">Mã Công ty <span className="text-red-500">*</span></label>
-            <input name="code" type="text" className="w-full border rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500 uppercase" 
+            <input name="code" type="text" className="w-full border rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500 uppercase"
               value={formData.code} onChange={handleChange} required placeholder="Vd: ABCGROUP" />
           </div>
 
           <div className="md:col-span-2">
             <label className="block text-sm font-medium mb-1">Số điện thoại <span className="text-red-500">*</span></label>
-            <input name="phone" type="tel" className="w-full border rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500" 
-              value={formData.phone} onChange={handleChange} required placeholder="0905 xxx xxx" />
+            <input name="phone" type="tel" className="w-full border rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500"
+              value={formData.phone} onChange={handleChange} required placeholder="0346 xxx xxx" />
           </div>
 
           <div className="md:col-span-2 font-semibold text-blue-600 border-b pb-2 mt-4">Thông tin Quản trị viên</div>
 
           <div className="md:col-span-2">
             <label className="block text-sm font-medium mb-1">Họ và tên Admin <span className="text-red-500">*</span></label>
-            <input name="adminFullName" type="text" className="w-full border rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500" 
+            <input name="adminFullName" type="text" className="w-full border rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500"
               value={formData.adminFullName} onChange={handleChange} required placeholder="Nguyễn Văn A" />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium mb-1">Nhập địa chỉ ví <span className="text-red-500">*</span></label>
+            <input name="treasury_wallet" type="text" className="w-full border rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500"
+              value={formData.treasury_wallet} onChange={handleChange} required placeholder="09xx..." />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium mb-1">Nhập private key<span className="text-red-500">*</span></label>
+            <input name="treasury_private_key" type="password" className="w-full border rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500"
+              value={formData.treasury_private_key} onChange={handleChange} required placeholder="********" />
           </div>
 
           <div className="md:col-span-2">
             <label className="block text-sm font-medium mb-1">Email đăng nhập <span className="text-red-500">*</span></label>
-            <input name="adminEmail" type="email" className="w-full border rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500" 
-              value={formData.adminEmail} onChange={handleChange} required placeholder="admin@abc.com" />
+            <input name="adminEmail" type="email" className="w-full border rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500"
+              value={formData.adminEmail} onChange={handleChange} required placeholder="admin@gmail.com" />
           </div>
 
           <div>
             <label className="block text-sm font-medium mb-1">Mật khẩu <span className="text-red-500">*</span></label>
-            <input name="adminPassword" type="password" className="w-full border rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500" 
+            <input name="adminPassword" type="password" className="w-full border rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500"
               value={formData.adminPassword} onChange={handleChange} required minLength={8} />
           </div>
 
           <div>
             <label className="block text-sm font-medium mb-1">Xác nhận mật khẩu <span className="text-red-500">*</span></label>
-            <input name="confirmPassword" type="password" className="w-full border rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500" 
+            <input name="confirmPassword" type="password" className="w-full border rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500"
               value={formData.confirmPassword} onChange={handleChange} required />
           </div>
 
@@ -129,18 +152,18 @@ export default function Register() {
         </form>
 
         <div className="mt-6 text-center text-sm space-y-3">
-            <p>
-                Bạn đã có tài khoản?{' '}
-                <Link to="/login" className="text-blue-600 font-bold hover:underline">
-                    Đăng nhập
-                </Link>
-            </p>
-                   <p className="text-gray-600">
-                Bạn là nhân viên muốn gia nhập công ty?{' '}
-                <Link to="/register-employee" className="text-green-600 font-bold hover:underline">
-                    Đăng ký Nhân viên
-                </Link>
-            </p>
+          <p>
+            Bạn đã có tài khoản?{' '}
+            <Link to="/login" className="text-blue-600 font-bold hover:underline">
+              Đăng nhập
+            </Link>
+          </p>
+          <p className="text-gray-600">
+            Bạn là nhân viên muốn gia nhập công ty?{' '}
+            <Link to="/register-employee" className="text-green-600 font-bold hover:underline">
+              Đăng ký Nhân viên
+            </Link>
+          </p>
         </div>
 
       </div>
