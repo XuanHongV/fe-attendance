@@ -91,8 +91,8 @@ export default function Dashboard() {
       const [usersData, positionsData, attendanceData, payrollData] = await Promise.all([
         fetchSafe(api.get(`/users/company/id/${companyId}`)),
         fetchSafe(api.get('/positions')),
-        fetchSafe(api.get('/attendance')),
-        fetchSafe(api.get('/payroll-payment'))
+        fetchSafe(api.get('/attendance/attendance_all')),
+        fetchSafe(api.get('/timeSheets'))
       ]);
 
       const totalEmployees = usersData.filter((u: any) => u.role?.toUpperCase() === 'STAFF').length;
