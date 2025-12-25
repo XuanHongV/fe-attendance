@@ -5,6 +5,7 @@ import {
 } from 'lucide-react';
 import { MetricCard } from './MetricCard'; 
 import api from '../../services/apiService';
+import { User } from '@supabase/supabase-js';
 
 /* =======================
    TYPES & INTERFACES
@@ -17,16 +18,18 @@ interface DashboardStats {
 }
 
 interface RecentAttendance {
-  id: string;
-  employee: {
-    name: string;
-    avatar: string;
-  };
-  date: string;
-  check_in_time: string | null;
-  check_out_time: string | null;
-  status: string;
-  work_hours: number;
+    id: string;
+    employee: {
+        name: string;
+        avatar: string;
+    };
+    user: User
+    date: string;
+    checkInTime: string | null;
+    checkOutTime: string | null;
+    status: string;
+    work_hours: number;
+    lateMinutes: number;
 }
 
 /* =======================
@@ -108,7 +111,7 @@ export default function Dashboard() {
         .slice(0, 8) 
         .map((att: any) => ({
           id: att._id?.$oid || att._id,
-          user: att.user || { fullName: 'N/A' },
+          employee: att.employee || { fullName: 'N/A' },
           date: att.check_in_time?.$date || att.check_in_time || att.createdAt?.$date || att.createdAt,
           checkInTime: formatTimeFromDB(att.check_in_time),
           checkOutTime: formatTimeFromDB(att.check_out_time),
@@ -163,100 +166,157 @@ export default function Dashboard() {
   );
 
   return (
-    <div className="p-4 md:p-8 bg-[#F8FAFC] min-h-screen font-sans">
-      <div className="max-w-7xl mx-auto">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-10">
-          <div>
-            <h2 className="text-3xl font-black text-slate-900 tracking-tight">Trang Tổng Quan</h2>
-            <p className="text-slate-500 font-medium mt-1">Hệ thống quản lý nhân sự & chấm công Blockchain</p>
-          </div>
-          <button 
-            onClick={fetchDashboardData}
-            className="flex items-center justify-center gap-2 px-6 py-3 bg-white border border-slate-200 rounded-2xl text-slate-600 font-bold text-sm shadow-sm hover:bg-slate-50 transition-all active:scale-95"
-          >
-            <RefreshCw size={16} /> Làm mới
-          </button>
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
-          <MetricCard title="Tổng Nhân viên" value={stats.totalEmployees} change="Nhân sự Staff" changeType="positive" icon={Users} color="blue" />
-          <MetricCard title="Vị trí Chức vụ" value={stats.totalPositions} change="Đã cấu hình" changeType="positive" icon={Briefcase} color="green" />
-          <MetricCard title="Kỳ lương" value={stats.totalPayrollMonth} change="Tháng hiện tại" changeType="neutral" icon={Activity} color="purple" />
-          <MetricCard title="Muộn/Vắng" value={stats.aiAlerts} change={stats.aiAlerts > 0 ? "Cần kiểm tra" : "Ổn định"} changeType={stats.aiAlerts > 0 ? "negative" : "positive"} icon={AlertTriangle} color="yellow" />
-        </div>
-
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          <div className="lg:col-span-2 bg-white rounded-[2.5rem] shadow-xl shadow-slate-200/50 border border-white p-6 md:p-8">
-            <div className="flex items-center justify-between mb-8">
-              <h3 className="text-xl font-black text-slate-900 flex items-center gap-3 tracking-tight">
-                <Clock className="text-blue-600" size={24} /> Nhật ký chấm công
-              </h3>
-            </div>
-            
-            <div className="overflow-x-auto">
-              <table className="w-full text-left border-separate border-spacing-y-3">
-                <thead>
-                  <tr className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                    <th className="px-4 py-2">Nhân viên</th>
-                    <th className="px-4 py-2 text-center">Ngày</th>
-                    <th className="px-4 py-2 text-center">Giờ Vào</th>
-                    <th className="px-4 py-2 text-center">Giờ Ra</th>
-                    <th className="px-4 py-2 text-right">Trạng thái</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {recentAttendances.map((att) => (
-                    <tr key={att.id} className="bg-slate-50/50 hover:bg-blue-50/50 transition-all group">
-                      <td className="py-4 px-4 rounded-l-2xl">
-                        <span className="font-black text-slate-800 text-sm group-hover:text-blue-700">{att.user?.fullName}</span>
-                      </td>
-                      <td className="py-4 px-4 text-center text-xs font-bold text-slate-500">
-                        {new Date(att.date).toLocaleDateString('vi-VN')}
-                      </td>
-                      <td className="py-4 px-4 text-center font-black text-xs text-blue-600 font-mono">
-                        {att.checkInTime}
-                      </td>
-                      <td className="py-4 px-4 text-center font-black text-xs text-purple-600 font-mono">
-                        {att.checkOutTime}
-                      </td>
-                      <td className="py-4 px-4 rounded-r-2xl flex justify-end">
-                        {renderStatusBadge(att.status, att.lateMinutes)}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-
-          <div className="flex flex-col gap-6">
-            <div className="bg-white rounded-[2.5rem] shadow-xl shadow-slate-200/50 border border-white p-8">
-              <h3 className="text-xl font-black text-slate-900 mb-6 tracking-tight">Hệ thống</h3>
-              <div className="space-y-4">
-                <div className="p-4 bg-green-50 rounded-2xl border border-green-100 flex items-center justify-between">
-                  <span className="text-[10px] font-black text-green-700 uppercase tracking-widest">Blockchain Node</span>
-                  <div className="flex items-center gap-2">
-                    <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
-                    <span className="text-[10px] font-bold text-green-600 uppercase">Online</span>
+      <div className='p-4 md:p-8 bg-[#F8FAFC] min-h-screen font-sans'>
+          <div className='max-w-7xl mx-auto'>
+              <div className='flex flex-col md:flex-row md:items-center justify-between gap-4 mb-10'>
+                  <div>
+                      <h2 className='text-3xl font-black text-slate-900 tracking-tight'>
+                          Trang Tổng Quan
+                      </h2>
+                      <p className='text-slate-500 font-medium mt-1'>
+                          Hệ thống quản lý nhân sự & chấm công Blockchain
+                      </p>
                   </div>
-                </div>
-                <div className="p-4 bg-blue-50 rounded-2xl border border-blue-100 flex items-center justify-between">
-                  <span className="text-[10px] font-black text-blue-700 uppercase tracking-widest">API Gateway</span>
-                  <span className="text-[10px] font-bold text-blue-600 uppercase tracking-tighter">Active</span>
-                </div>
+                  <button
+                      onClick={fetchDashboardData}
+                      className='flex items-center justify-center gap-2 px-6 py-3 bg-white border border-slate-200 rounded-2xl text-slate-600 font-bold text-sm shadow-sm hover:bg-slate-50 transition-all active:scale-95'
+                  >
+                      <RefreshCw size={16} /> Làm mới
+                  </button>
               </div>
-            </div>
 
-            <div className="bg-gradient-to-br from-blue-600 to-indigo-700 rounded-[2.5rem] p-8 text-white shadow-xl shadow-blue-200">
-              <TrendingUp size={32} className="mb-4 opacity-50" />
-              <h4 className="font-black text-lg mb-2 tracking-tight">Số liệu thực tế</h4>
-              <p className="text-blue-100 text-[11px] leading-relaxed font-medium">
-                Dữ liệu được truy xuất trực tiếp từ các khối Blockchain, đảm bảo tính minh bạch và không thể chỉnh sửa thông tin chấm công.
-              </p>
-            </div>
+              <div className='grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-10'>
+                  <MetricCard
+                      title='Tổng Nhân viên'
+                      value={stats.totalEmployees}
+                      change='Nhân sự Staff'
+                      changeType='positive'
+                      icon={Users}
+                      color='blue'
+                  />
+                  <MetricCard
+                      title='Vị trí Chức vụ'
+                      value={stats.totalPositions}
+                      change='Đã cấu hình'
+                      changeType='positive'
+                      icon={Briefcase}
+                      color='green'
+                  />
+                  <MetricCard
+                      title='Kỳ lương'
+                      value={stats.totalPayrollMonth}
+                      change='Tháng hiện tại'
+                      changeType='neutral'
+                      icon={Activity}
+                      color='purple'
+                  />
+                  <MetricCard
+                      title='Muộn/Vắng'
+                      value={stats.aiAlerts}
+                      change={stats.aiAlerts > 0 ? 'Cần kiểm tra' : 'Ổn định'}
+                      changeType={stats.aiAlerts > 0 ? 'negative' : 'positive'}
+                      icon={AlertTriangle}
+                      color='yellow'
+                  />
+              </div>
+
+              <div className='grid grid-cols-1 lg:grid-cols-3 gap-8'>
+                  <div className='lg:col-span-2 bg-white rounded-[2.5rem] shadow-xl shadow-slate-200/50 border border-white p-6 md:p-8'>
+                      <div className='flex items-center justify-between mb-8'>
+                          <h3 className='text-xl font-black text-slate-900 flex items-center gap-3 tracking-tight'>
+                              <Clock className='text-blue-600' size={24} /> Nhật ký chấm
+                              công
+                          </h3>
+                      </div>
+
+                      <div className='overflow-x-auto'>
+                          <table className='w-full text-left border-separate border-spacing-y-3'>
+                              <thead>
+                                  <tr className='text-[10px] font-black text-slate-400 uppercase tracking-widest'>
+                                      <th className='px-4 py-2'>Nhân viên</th>
+                                      <th className='px-4 py-2 text-center'>Ngày</th>
+                                      <th className='px-4 py-2 text-center'>Giờ Vào</th>
+                                      <th className='px-4 py-2 text-center'>Giờ Ra</th>
+                                      <th className='px-4 py-2 text-right'>Trạng thái</th>
+                                  </tr>
+                              </thead>
+                              <tbody>
+                                  {recentAttendances.map((att) => (
+                                      <tr
+                                          key={att.id}
+                                          className='bg-slate-50/50 hover:bg-blue-50/50 transition-all group'
+                                      >
+                                          <td className='py-4 px-4 rounded-l-2xl'>
+                                              <span className='font-black text-slate-800 text-sm tracking-tight'>
+                                                  {att.employee?.name}
+                                              </span>
+                                          </td>
+                                          <td className='py-4 px-4 text-center text-xs font-bold text-slate-500'>
+                                              {new Date(att.date).toLocaleDateString(
+                                                  'vi-VN'
+                                              )}
+                                          </td>
+                                          <td className='py-4 px-4 text-center font-black text-xs text-blue-600 font-mono'>
+                                              {att.checkInTime}
+                                          </td>
+                                          <td className='py-4 px-4 text-center font-black text-xs text-purple-600 font-mono'>
+                                              {att.checkOutTime}
+                                          </td>
+                                          <td className='py-4 px-4 rounded-r-2xl flex justify-end'>
+                                              {renderStatusBadge(
+                                                  att.status,
+                                                  att.lateMinutes
+                                              )}
+                                          </td>
+                                      </tr>
+                                  ))}
+                              </tbody>
+                          </table>
+                      </div>
+                  </div>
+
+                  <div className='flex flex-col gap-6'>
+                      <div className='bg-white rounded-[2.5rem] shadow-xl shadow-slate-200/50 border border-white p-8'>
+                          <h3 className='text-xl font-black text-slate-900 mb-6 tracking-tight'>
+                              Hệ thống
+                          </h3>
+                          <div className='space-y-4'>
+                              <div className='p-4 bg-green-50 rounded-2xl border border-green-100 flex items-center justify-between'>
+                                  <span className='text-[10px] font-black text-green-700 uppercase tracking-widest'>
+                                      Blockchain Node
+                                  </span>
+                                  <div className='flex items-center gap-2'>
+                                      <div className='w-2 h-2 bg-green-500 rounded-full animate-pulse' />
+                                      <span className='text-[10px] font-bold text-green-600 uppercase'>
+                                          Online
+                                      </span>
+                                  </div>
+                              </div>
+                              <div className='p-4 bg-blue-50 rounded-2xl border border-blue-100 flex items-center justify-between'>
+                                  <span className='text-[10px] font-black text-blue-700 uppercase tracking-widest'>
+                                      API Gateway
+                                  </span>
+                                  <span className='text-[10px] font-bold text-blue-600 uppercase tracking-tighter'>
+                                      Active
+                                  </span>
+                              </div>
+                          </div>
+                      </div>
+
+                      <div className='bg-gradient-to-br from-blue-600 to-indigo-700 rounded-[2.5rem] p-8 text-white shadow-xl shadow-blue-200'>
+                          <TrendingUp size={32} className='mb-4 opacity-50' />
+                          <h4 className='font-black text-lg mb-2 tracking-tight'>
+                              Số liệu thực tế
+                          </h4>
+                          <p className='text-blue-100 text-[11px] leading-relaxed font-medium'>
+                              Dữ liệu được truy xuất trực tiếp từ các khối Blockchain, đảm
+                              bảo tính minh bạch và không thể chỉnh sửa thông tin chấm
+                              công.
+                          </p>
+                      </div>
+                  </div>
+              </div>
           </div>
-        </div>
       </div>
-    </div>
   );
 }

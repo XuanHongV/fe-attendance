@@ -13,6 +13,7 @@ import {
     AlertCircle,
 } from 'lucide-react';
 import api from '../../services/apiService';
+import toastService from '../../services/toastService';
 
 interface Position {
     _id: string;
@@ -46,7 +47,7 @@ export const PositionManagement = () => {
                 : response.data?.data || [];
             setPositions(data);
         } catch (error) {
-            console.error('Lỗi tải danh sách chức vụ:', error);
+            console.error('Lỗi tải danh sách vị trí:', error);
         } finally {
             setLoading(false);
         }
@@ -73,12 +74,22 @@ export const PositionManagement = () => {
     };
 
     const handleDelete = async (id: string) => {
-        if (!window.confirm('Bạn có chắc chắn muốn xóa chức vụ này?')) return;
-        try {
-            await api.delete(`/positions/${id}`);
-            setPositions((prev) => prev.filter((p) => p._id !== id));
-        } catch (error: any) {
-            alert(error.response?.data?.message || 'Lỗi khi xóa chức vụ');
+        const isConfirmed = await toastService.confirm(
+            'Xóa Vị trí này',
+            'Bạn có chắc chắn muốn xóa vị trí này? Hành động này sẽ xóa toàn bộ dữ liệu chi tiết liên quan.',
+            'Xóa',
+            'Hủy'
+        );
+        if (isConfirmed) {
+            try {
+                await api.delete(`/positions/${id}`);
+                setPositions((prev) => prev.filter((p) => p._id !== id));
+                toastService.success('Xóa thành công !')
+            } catch (error: any) {
+                toastService.error(
+                    error.response?.data?.message || 'Lỗi khi xóa vị trí này'
+                );
+            }
         }
     };
 
@@ -124,7 +135,7 @@ export const PositionManagement = () => {
             <div className='p-10 text-center min-h-screen flex flex-col items-center justify-center gap-4 bg-slate-50'>
                 <Loader2 className='animate-spin text-indigo-600 w-10 h-10' />
                 <p className='text-indigo-900 font-bold uppercase tracking-widest text-[10px]'>
-                    Đang tải cấu hình chức vụ...
+                    Đang tải cấu hình vị trí...
                 </p>
             </div>
         );
@@ -139,7 +150,7 @@ export const PositionManagement = () => {
                             <div className='p-1.5 bg-white/20 backdrop-blur-md rounded-lg'>
                                 <Briefcase size={20} className='text-white' />
                             </div>
-                            Quản lý Chức vụ
+                            Quản lý Vị Trí
                         </h2>
                         <p className='text-indigo-100 text-[11px] mt-1 font-medium opacity-90 ml-1 uppercase tracking-wider'>
                             Thiết lập vị trí & Định mức lương giờ
@@ -149,7 +160,7 @@ export const PositionManagement = () => {
                         onClick={() => handleOpenModal()}
                         className='bg-white text-indigo-600 px-4 py-2 rounded-xl hover:bg-indigo-50 transition-all flex items-center gap-2 shadow-md font-bold text-xs uppercase tracking-widest active:scale-95'
                     >
-                        <Plus size={16} /> <span>Thêm Chức vụ</span>
+                        <Plus size={16} /> <span>Thêm Vị trí</span>
                     </button>
                 </div>
 
@@ -318,7 +329,7 @@ export const PositionManagement = () => {
                                             ₫
                                         </div>
                                         <input
-                                            type='number'
+                                            type='text'
                                             min='0'
                                             required
                                             value={formData.hourlyRate}

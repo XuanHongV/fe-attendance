@@ -260,11 +260,11 @@ export const ShiftManagement = () => {
                                     <div className='grid grid-cols-2 gap-4'>
                                         <div>
                                             <label className='block text-xs font-black text-slate-400 uppercase mb-2'>Phụ cấp (VNĐ)</label>
-                                            <input type='number' value={formData.allowance} onChange={(e) => setFormData({ ...formData, allowance: Number(e.target.value) })} className='w-full px-6 py-4 bg-slate-50 rounded-2xl font-black text-green-600 outline-none border-2 border-transparent focus:border-green-500' />
+                                            <input type='text' value={formData.allowance} onChange={(e) => setFormData({ ...formData, allowance: Number(e.target.value) })} className='w-full px-6 py-4 bg-slate-50 rounded-2xl font-black text-green-600 outline-none border-2 border-transparent focus:border-green-500' />
                                         </div>
                                         <div>
                                             <label className='block text-xs font-black text-slate-400 uppercase mb-2'>Phạt đi muộn (VNĐ)</label>
-                                            <input type='number' value={formData.late_penalty_amount} onChange={(e) => setFormData({ ...formData, late_penalty_amount: Number(e.target.value) })} className='w-full px-6 py-4 bg-slate-50 rounded-2xl font-black text-red-500 outline-none border-2 border-transparent focus:border-red-500' />
+                                            <input type='text' value={formData.late_penalty_amount} onChange={(e) => setFormData({ ...formData, late_penalty_amount: Number(e.target.value) })} className='w-full px-6 py-4 bg-slate-50 rounded-2xl font-black text-red-500 outline-none border-2 border-transparent focus:border-red-500' />
                                         </div>
                                     </div>
                                     
@@ -293,15 +293,15 @@ export const ShiftManagement = () => {
 
                                         <div>
                                             <label className='block text-[10px] font-black text-slate-400 uppercase mb-2'>Mở Check-in sớm</label>
-                                            <input type='number' value={formData.check_allowed_time} onChange={(e) => setFormData({ ...formData, check_allowed_time: Number(e.target.value) })} className='w-full px-4 py-4 bg-slate-50 rounded-2xl font-black outline-none border-2 border-transparent focus:border-blue-500' />
+                                            <input type='text' value={formData.check_allowed_time} onChange={(e) => setFormData({ ...formData, check_allowed_time: Number(e.target.value) })} className='w-full px-4 py-4 bg-slate-50 rounded-2xl font-black outline-none border-2 border-transparent focus:border-blue-500' />
                                         </div>
                                         <div>
                                             <label className='block text-[10px] font-black text-slate-400 uppercase mb-2'>Thời lượng Check-in tối đa</label>
-                                            <input type='number' value={formData.check_in_duration} onChange={(e) => setFormData({ ...formData, check_in_duration: Number(e.target.value) })} className='w-full px-4 py-4 bg-slate-50 rounded-2xl font-black outline-none border-2 border-transparent focus:border-blue-500' />
+                                            <input type='text' value={formData.check_in_duration} onChange={(e) => setFormData({ ...formData, check_in_duration: Number(e.target.value) })} className='w-full px-4 py-4 bg-slate-50 rounded-2xl font-black outline-none border-2 border-transparent focus:border-blue-500' />
                                         </div>
                                         <div className='col-span-2'>
                                             <label className='block text-[10px] font-black text-slate-400 uppercase mb-2'>Thời lượng cho phép Check-out tối đa</label>
-                                            <input type='number' value={formData.check_out_allowed_time} onChange={(e) => setFormData({ ...formData, check_out_allowed_time: Number(e.target.value) })} className='w-full px-4 py-4 bg-slate-50 rounded-2xl font-black outline-none border-2 border-transparent focus:border-blue-500' />
+                                            <input type='text' value={formData.check_out_allowed_time} onChange={(e) => setFormData({ ...formData, check_out_allowed_time: Number(e.target.value) })} className='w-full px-4 py-4 bg-slate-50 rounded-2xl font-black outline-none border-2 border-transparent focus:border-blue-500' />
                                         </div>
                                     </div>
                                 </div>
