@@ -172,7 +172,6 @@ export const PayrollManagement = () => {
         try {
             const details = await timesheetService.generateDetails(selectedTimesheet._id);
             setPayrolls(details);
-            // Refresh danh sách timesheet để cập nhật status
             await fetchTimesheets();
             toastService.success(
                 isFirstTime

@@ -130,7 +130,7 @@ export const ScheduleManagement = () => {
         const rawUsers = Array.isArray(usersRes.data)
           ? usersRes.data
           : usersRes.data?.data || [];
-        // console.log("raw user", rawUsers);
+
         setAvailableEmployees(rawUsers.filter((u: any) => u.role === "STAFF"));
         setAvailableShifts(shiftsRes.data);
       }
