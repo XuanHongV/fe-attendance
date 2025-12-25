@@ -114,7 +114,7 @@ export default function Login() {
                                     value={email}
                                     onChange={(e) => setEmail(e.target.value)}
                                     required
-                                    autoComplete='email'
+                                    autoComplete='off'
                                     placeholder='admin@company.com'
                                 />
                             </div>
@@ -136,7 +136,7 @@ export default function Login() {
                                     value={password}
                                     onChange={(e) => setPassword(e.target.value)}
                                     required
-                                    autoComplete='current-password'
+                                    autoComplete='off'
                                     placeholder='••••••••'
                                 />
                             </div>

@@ -101,14 +101,6 @@ export const Header = ({ user, onLogout }: HeaderProps) => {
               )}
             </div>
           </div>
-
-          <button
-            onClick={onLogout}
-            className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-full transition-all"
-            title="Đăng xuất"
-          >
-            <LogOut className="w-5 h-5" />
-          </button>
         </div>
       </div>
     </header>

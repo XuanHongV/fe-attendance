@@ -74,16 +74,22 @@ export const PositionManagement = () => {
     };
 
     const handleDelete = async (id: string) => {
-        if (!toastService.confirm('Xóa Vị trí này',
+        const isConfirmed = await toastService.confirm(
+            'Xóa Vị trí này',
             'Bạn có chắc chắn muốn xóa vị trí này? Hành động này sẽ xóa toàn bộ dữ liệu chi tiết liên quan.',
             'Xóa',
-            'Hủy')) return;
-        try {
-            await api.delete(`/positions/${id}`);
-            setPositions((prev) => prev.filter((p) => p._id !== id));
-        } catch (error: any) {
-            toastService.error(error.response?.data?.message || 'Lỗi khi xóa vị trí này');
-            
+            'Hủy'
+        );
+        if (isConfirmed) {
+            try {
+                await api.delete(`/positions/${id}`);
+                setPositions((prev) => prev.filter((p) => p._id !== id));
+                toastService.success('Xóa thành công !')
+            } catch (error: any) {
+                toastService.error(
+                    error.response?.data?.message || 'Lỗi khi xóa vị trí này'
+                );
+            }
         }
     };
 

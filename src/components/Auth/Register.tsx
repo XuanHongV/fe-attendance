@@ -75,6 +75,17 @@ export default function Register() {
         };
 
         dispatch(registerAdmin(payload));
+        setFormData({
+            name: '',
+            code: '',
+            phone: '',
+            adminFullName: '',
+            adminEmail: '',
+            adminPassword: '',
+            confirmPassword: '',
+            treasury_wallet: '',
+            treasury_private_key: '',
+        });
     };
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
