@@ -120,7 +120,7 @@ export const authSlice = createSlice({
       .addCase(registerAdmin.fulfilled, (state) => {
         state.isLoading = false;
         state.isSuccess = true;
-        state.message = "Đăng ký Doanh nghiệp thành công! Vui lòng đăng nhập.";
+        state.message = "";
       })
       .addCase(registerAdmin.rejected, (state, action) => {
         state.isLoading = false;
@@ -132,7 +132,7 @@ export const authSlice = createSlice({
       .addCase(registerEmployee.fulfilled, (state) => {
         state.isLoading = false;
         state.isSuccess = true;
-        state.message = "Đăng ký Nhân viên thành công! Vui lòng chờ duyệt.";
+        state.message = "";
       })
       .addCase(registerEmployee.rejected, (state, action) => {
         state.isLoading = false;
