@@ -115,7 +115,7 @@ export default function Login() {
                                     onChange={(e) => setEmail(e.target.value)}
                                     required
                                     autoComplete='off'
-                                    placeholder='admin@company.com'
+                                    placeholder='user@company.com'
                                 />
                             </div>
                         </div>
