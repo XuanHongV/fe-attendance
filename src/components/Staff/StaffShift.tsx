@@ -23,7 +23,7 @@ interface Shift {
 interface ShiftAssignment {
   _id: string;
   work_date: string;
-  shift: Shift;
+  shift: Shift | null; // Cho phép null để tránh lỗi crash
   status: string;
   location?: string;
   note?: string;
@@ -33,10 +33,7 @@ export const StaffShift = () => {
   const [shifts, setShifts] = useState<ShiftAssignment[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
-  
   const [viewMode, setViewMode] = useState<'calendar' | 'list'>('calendar');
-  
-  // State quản lý tháng hiện tại cho Calendar View
   const [currentDate, setCurrentDate] = useState(new Date());
 
   const { user } = useSelector((state: RootState) => state.auth);
@@ -44,41 +41,27 @@ export const StaffShift = () => {
   useEffect(() => {
     const fetchMyShifts = async () => {
       if (!user?._id) return;
-
       try {
         setLoading(true);
         const response = await api.get(`/shift-assignments/user/${user._id}`);
-        
-        if (response.data && Array.isArray(response.data.data)) {
-            setShifts(response.data.data);
-        } else if (Array.isArray(response.data)) {
-            setShifts(response.data);
-        } else {
-            setShifts([]);
-        }
+        const data = response.data?.data || response.data || [];
+        setShifts(Array.isArray(data) ? data : []);
       } catch (err: any) {
-        console.error("Lỗi tải lịch:", err);
         setError("Không thể tải lịch làm việc. Vui lòng thử lại sau.");
       } finally {
         setLoading(false);
       }
     };
-
     fetchMyShifts();
-  }, [user]);
+  }, [user?._id]);
 
   const formatDate = (dateString: string) => {
     if (!dateString) return "Chưa cập nhật";
-    const date = new Date(dateString);
     return new Intl.DateTimeFormat('vi-VN', {
-      weekday: 'long',
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric'
-    }).format(date);
+      weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric'
+    }).format(new Date(dateString));
   };
 
-  // --- LOGIC CHO CALENDAR VIEW ---
   const getDaysInMonth = (date: Date) => {
     const year = date.getFullYear();
     const month = date.getMonth();
@@ -88,189 +71,161 @@ export const StaffShift = () => {
   };
 
   const changeMonth = (offset: number) => {
-    const newDate = new Date(currentDate.getFullYear(), currentDate.getMonth() + offset, 1);
-    setCurrentDate(newDate);
+    setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + offset, 1));
   };
 
   const renderCalendar = () => {
     const { days, firstDay } = getDaysInMonth(currentDate);
     const daysArray = [];
 
-    // Ô trống đầu tháng
     for (let i = 0; i < firstDay; i++) {
-      daysArray.push(<div key={`empty-${i}`} className="h-24 bg-gray-50 border border-gray-100"></div>);
+      daysArray.push(<div key={`empty-${i}`} className="h-28 bg-slate-50/50 border border-slate-100"></div>);
     }
 
-    // Các ngày trong tháng
     for (let d = 1; d <= days; d++) {
       const currentMonthStr = (currentDate.getMonth() + 1).toString().padStart(2, '0');
       const dayStr = d.toString().padStart(2, '0');
       const dateString = `${currentDate.getFullYear()}-${currentMonthStr}-${dayStr}`;
 
-      const dayShifts = shifts.filter(s => s.work_date.startsWith(dateString));
+      // Thêm kiểm tra s.work_date an toàn
+      const dayShifts = shifts.filter(s => s.work_date && s.work_date.startsWith(dateString));
 
       daysArray.push(
-        <div key={d} className="min-h-[100px] border border-gray-100 p-1 hover:bg-gray-50 transition-colors bg-white">
-          <div className={`text-right text-sm font-medium mb-1 ${
+        <div key={d} className="min-h-[110px] border border-slate-100 p-2 hover:bg-blue-50/30 transition-all bg-white relative group">
+          <div className={`text-right text-xs font-black mb-2 ${
              new Date().toDateString() === new Date(currentDate.getFullYear(), currentDate.getMonth(), d).toDateString() 
-             ? 'text-blue-600 font-bold' : 'text-gray-700'
+             ? 'text-blue-600' : 'text-slate-400'
           }`}>
             {d}
           </div>
-          <div className="flex flex-col gap-1">
-            {dayShifts.map(shift => (
+          <div className="flex flex-col gap-1.5">
+            {dayShifts.map(item => (
               <div 
-                key={shift._id} 
-                className="text-[10px] p-1 rounded text-white truncate cursor-help"
-                style={{ backgroundColor: shift.shift?.color_code || '#3b82f6' }}
-                title={`${shift.shift.name}: ${shift.shift.start_time} - ${shift.shift.end_time}`}
+                key={item._id} 
+                className="text-[9px] p-1.5 rounded-lg text-white truncate font-bold shadow-sm"
+                style={{ backgroundColor: item.shift?.color_code || '#6366f1' }}
+                title={`${item.shift?.name}: ${item.shift?.start_time} - ${item.shift?.end_time}`}
               >
-                {shift.shift.start_time} - {shift.shift.name}
+                {/* Sửa lỗi tại đây: Thêm optional chaining ?. */}
+                {item.shift?.start_time || '??:??'} {item.shift?.name || 'N/A'}
               </div>
             ))}
           </div>
         </div>
       );
     }
-
     return daysArray;
   };
 
-  if (loading) {
-    return (
-      <div className="p-6 flex justify-center items-center min-h-[300px]">
-        <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600"></div>
-      </div>
-    );
-  }
+  if (loading) return (
+    <div className="p-20 flex flex-col items-center justify-center min-h-[400px]">
+      <div className="animate-spin rounded-full h-12 w-12 border-t-4 border-blue-600 border-solid border-r-transparent"></div>
+      <p className="mt-4 text-slate-400 font-black text-xs uppercase tracking-[0.2em]">Đang đồng bộ dữ liệu...</p>
+    </div>
+  );
 
-  if (error) {
-    return (
-      <div className="p-6 flex justify-center">
-        <div className="bg-red-50 text-red-600 p-4 rounded-lg border border-red-200 flex items-center gap-2">
-          <AlertCircle size={20} /> {error}
-        </div>
+  if (error) return (
+    <div className="p-10 flex justify-center">
+      <div className="bg-red-50 text-red-600 p-6 rounded-[2rem] border-2 border-red-100 flex items-center gap-4 shadow-xl shadow-red-100">
+        <AlertCircle size={24} /> <span className="font-black uppercase text-xs tracking-widest">{error}</span>
       </div>
-    );
-  }
+    </div>
+  );
 
   return (
-    <div className="p-6 max-w-6xl mx-auto">
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
+    <div className="p-4 md:p-8 max-w-7xl mx-auto min-h-screen animate-in fade-in duration-700">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-10 gap-6">
         <div>
-          <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
-            <CalendarIcon className="w-8 h-8 text-blue-600" />
-            Lịch làm việc của tôi
+          <h1 className="text-3xl font-black text-slate-900 flex items-center gap-3 tracking-tight">
+            <CalendarIcon className="w-10 h-10 text-blue-600 p-2 bg-blue-50 rounded-2xl" />
+            Lịch Làm Việc
           </h1>
-          <p className="text-gray-500 text-sm mt-1">Quản lý ca làm việc và thời gian</p>
+          <p className="text-slate-500 font-bold uppercase text-[10px] tracking-[0.2em] mt-2 ml-1 opacity-60">Personal Schedule Management</p>
         </div>
 
-        <div className="bg-gray-100 p-1 rounded-lg flex items-center">
-            <button 
-                onClick={() => setViewMode('calendar')}
-                className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-all ${
-                    viewMode === 'calendar' 
-                    ? 'bg-white text-blue-600 shadow-sm' 
-                    : 'text-gray-500 hover:text-gray-700'
-                }`}
-            >
-                <CalendarIcon size={16} /> Lịch Tháng
-            </button>
-            <button 
-                onClick={() => setViewMode('list')}
-                className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-all ${
-                    viewMode === 'list' 
-                    ? 'bg-white text-blue-600 shadow-sm' 
-                    : 'text-gray-500 hover:text-gray-700'
-                }`}
-            >
-                <List size={16} /> Chi Tiết Ca
-            </button>
+        <div className="bg-slate-100 p-1.5 rounded-2xl flex items-center shadow-inner">
+          <button 
+            onClick={() => setViewMode('calendar')}
+            className={`flex items-center gap-2 px-6 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${
+              viewMode === 'calendar' ? 'bg-white text-blue-600 shadow-lg' : 'text-slate-500 hover:text-slate-700'
+            }`}
+          >
+            <CalendarIcon size={14} /> Lịch Tháng
+          </button>
+          <button 
+            onClick={() => setViewMode('list')}
+            className={`flex items-center gap-2 px-6 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${
+              viewMode === 'list' ? 'bg-white text-blue-600 shadow-lg' : 'text-slate-500 hover:text-slate-700'
+            }`}
+          >
+            <List size={14} /> Chi Tiết
+          </button>
         </div>
       </div>
-      {viewMode === 'calendar' && (
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden animate-in fade-in duration-300">
-           {/* Thanh điều hướng tháng */}
-           <div className="flex justify-between items-center p-4 border-b border-gray-200 bg-gray-50">
-              <button onClick={() => changeMonth(-1)} className="p-1 hover:bg-gray-200 rounded"><ChevronLeft /></button>
-              <span className="font-bold text-gray-700 text-lg">
-                Tháng {currentDate.getMonth() + 1} / {currentDate.getFullYear()}
-              </span>
-              <button onClick={() => changeMonth(1)} className="p-1 hover:bg-gray-200 rounded"><ChevronRight /></button>
-           </div>
-           
-           {/* Header Thứ */}
-           <div className="grid grid-cols-7 border-b border-gray-200 bg-gray-50">
-              {['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'].map(day => (
-                  <div key={day} className="py-2 text-center text-sm font-semibold text-gray-500">{day}</div>
-              ))}
-           </div>
 
-           <div className="grid grid-cols-7 bg-gray-200 gap-px border-b border-gray-200">
-               {renderCalendar()}
-           </div>
-           
-           <div className="p-3 text-xs text-gray-500 bg-gray-50">
-              * Nhấn vào "Chi Tiết Ca" để xem địa điểm và ghi chú cụ thể.
-           </div>
+      {viewMode === 'calendar' ? (
+        <div className="bg-white rounded-[2.5rem] shadow-2xl shadow-slate-200/50 border border-white overflow-hidden">
+          <div className="flex justify-between items-center p-6 border-b border-slate-50 bg-slate-50/30">
+            <button onClick={() => changeMonth(-1)} className="p-3 hover:bg-white hover:shadow-md rounded-2xl transition-all text-slate-400 hover:text-blue-600"><ChevronLeft size={24}/></button>
+            <span className="font-black text-slate-800 text-xl uppercase tracking-tighter">
+              Tháng {currentDate.getMonth() + 1} <span className="text-blue-600">/</span> {currentDate.getFullYear()}
+            </span>
+            <button onClick={() => changeMonth(1)} className="p-3 hover:bg-white hover:shadow-md rounded-2xl transition-all text-slate-400 hover:text-blue-600"><ChevronRight size={24}/></button>
+          </div>
+          
+          <div className="grid grid-cols-7 bg-slate-50/50 border-b border-slate-100">
+            {['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'].map(day => (
+              <div key={day} className="py-4 text-center text-[10px] font-black uppercase text-slate-400 tracking-widest">{day}</div>
+            ))}
+          </div>
+
+          <div className="grid grid-cols-7 bg-slate-100 gap-px">
+            {renderCalendar()}
+          </div>
         </div>
-      )}
-
-      {viewMode === 'list' && (
-        <div className="animate-in fade-in slide-in-from-bottom-4 duration-300">
-             {shifts.length === 0 ? (
-                <div className="bg-white p-16 rounded-2xl shadow-sm text-center border border-dashed border-gray-300">
-                <CalendarIcon className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-                <h3 className="text-lg font-medium text-gray-900">Chưa có lịch làm việc</h3>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 animate-in slide-in-from-bottom-10 duration-700">
+          {shifts.length === 0 ? (
+            <div className="col-span-full bg-white p-24 rounded-[3rem] text-center border-4 border-dashed border-slate-50">
+              <CalendarIcon className="w-20 h-20 text-slate-100 mx-auto mb-6" />
+              <p className="text-slate-400 font-black uppercase text-xs tracking-widest">Hiện tại bạn chưa có lịch phân ca</p>
+            </div>
+          ) : (
+            shifts.map((item) => (
+              <div key={item._id} className="bg-white rounded-[2.5rem] shadow-xl shadow-slate-200/40 border border-white p-8 group hover:-translate-y-2 transition-all duration-300">
+                <div className="flex justify-between items-start mb-6">
+                  <div className="px-4 py-2 bg-blue-50 rounded-2xl text-[10px] font-black text-blue-600 uppercase tracking-widest border border-blue-100">
+                    {formatDate(item.work_date)}
+                  </div>
+                  <span className={`px-3 py-1.5 rounded-xl text-[8px] font-black uppercase tracking-tighter border-2 ${
+                    item.status === 'COMPLETED' ? 'bg-green-50 text-green-600 border-green-100' : 
+                    item.status === 'ABSENT' ? 'bg-red-50 text-red-600 border-red-100' : 'bg-amber-50 text-amber-600 border-amber-100'
+                  }`}>
+                    {item.status === 'ASSIGNED' ? 'Sắp tới' : item.status}
+                  </span>
                 </div>
-            ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {shifts.map((item) => (
-                    <div
-                    key={item._id}
-                    className="group bg-white rounded-xl shadow-sm hover:shadow-md transition-all duration-200 border border-gray-100 overflow-hidden flex flex-col"
-                    >
-                    <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-4 border-b border-indigo-100 flex justify-between items-center">
-                        <span className="font-bold text-indigo-900 capitalize text-sm">
-                        {formatDate(item.work_date)}
-                        </span>
-                        
-                        <span className={`text-[10px] uppercase tracking-wider px-2 py-1 rounded-full font-bold ${
-                        item.status === 'COMPLETED' ? 'bg-green-100 text-green-700' :
-                        item.status === 'ABSENT' ? 'bg-red-100 text-red-700' :
-                        'bg-yellow-100 text-yellow-700'
-                        }`}>
-                        {item.status === 'ASSIGNED' ? 'Sắp tới' : item.status}
-                        </span>
-                    </div>
 
-                    <div className="p-5 flex-1 flex flex-col gap-4">
-                        <div>
-                        <h3 className="text-lg font-bold text-gray-800 group-hover:text-blue-600 transition-colors">
-                            {item.shift?.name || "Ca chưa đặt tên"}
-                        </h3>
-                        <div 
-                            className="h-1 w-12 rounded mt-2" 
-                            style={{ backgroundColor: item.shift?.color_code || '#3b82f6' }}
-                        ></div>
-                        </div>
-
-                        <div className="flex items-center text-gray-700 bg-gray-50 p-3 rounded-lg border border-gray-100">
-                        <Clock className="w-5 h-5 mr-3 text-blue-500 flex-shrink-0" />
-                        <span className="font-mono font-medium text-lg">
-                            {item.shift?.start_time} - {item.shift?.end_time}
-                        </span>
-                        </div>
-
-                        <div className="flex items-center text-gray-500 text-sm mt-auto pt-2">
-                        <MapPin className="w-4 h-4 mr-2 text-red-500" />
-                        <span className="truncate">{item.location || "Văn phòng chính"}</span>
-                        </div>
-                    </div>
-                    </div>
-                ))}
+                <h3 className="text-xl font-black text-slate-900 mb-2 group-hover:text-blue-600 transition-colors">
+                  {item.shift?.name || "Ca chưa xác định"}
+                </h3>
+                
+                <div className="flex items-center gap-3 text-slate-400 mb-8">
+                  <MapPin size={14} className="text-red-400" />
+                  <span className="text-[10px] font-bold uppercase tracking-widest">{item.location || "Văn phòng chính"}</span>
                 </div>
-            )}
+
+                <div className="p-4 bg-slate-50 rounded-3xl border border-slate-100 flex items-center justify-between">
+                  <div className="flex items-center gap-3 text-slate-700">
+                    <Clock size={18} className="text-blue-500" />
+                    <span className="font-black text-sm tracking-tight font-mono">
+                      {item.shift?.start_time || '--:--'} - {item.shift?.end_time || '--:--'}
+                    </span>
+                  </div>
+                  <div className="w-3 h-3 rounded-full shadow-inner" style={{ backgroundColor: item.shift?.color_code || '#cbd5e1' }} />
+                </div>
+              </div>
+            ))
+          )}
         </div>
       )}
     </div>

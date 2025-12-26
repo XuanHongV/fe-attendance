@@ -48,17 +48,41 @@ export const Timekeeping = () => {
     fetchTodayShifts();
   }, [user]);
 
+
+const getLocation = (): Promise<GeolocationPosition> => {
+    return new Promise((resolve, reject) => {
+        navigator.geolocation.getCurrentPosition(resolve, reject, {
+            enableHighAccuracy: true,
+            timeout: 5000,
+            maximumAge: 0
+        });
+    });
+};
+
   // 2. Hàm xử lý khi quét được mã QR thành công
   const handleScan = async (text: string) => {
     if (!text || loading) return;
 
     setLoading(true);
     setIsScanning(false); // Đóng camera sau khi quét trúng
-    setMessage(null);
+
+    // 1. Lấy vị trí từ Sensors/GPS thực tế
+  const getCoordinates = (): Promise<{lat: number, lng: number}> => {
+    return new Promise((resolve) => {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+        () => resolve({ lat: 0, lng: 0 }), // Trả về 0 nếu người dùng từ chối
+        { enableHighAccuracy: true, timeout: 5000 }
+      );
+    });
+  };
+
+  const coords = await getCoordinates();
 
     try {
       // Gửi token quét được lên API verify-qr mà bạn đã viết ở backend
-      const response = await api.post("/attendance/verify-qr", { token: text });
+      const response = await api.post("/attendance/verify-qr", { token: text, aiMetadata: {
+        location: coords }});
 
       const result = response.data;
       setMessage({

@@ -64,8 +64,9 @@ const PrivateLayout = () => {
         activeTab={currentPath}
         onTabChange={handleTabChange}
         mobileOpen={mobileOpen}
-        setMobileOpen={setMobileOpen}
-      />
+        setMobileOpen={setMobileOpen} onLogout={function (): void {
+          throw new Error("Function not implemented.");
+        } }      />
 
       <div className="flex-1 flex flex-col h-screen overflow-hidden relative">
         <div className="md:hidden bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between shadow-sm flex-shrink-0 z-20">

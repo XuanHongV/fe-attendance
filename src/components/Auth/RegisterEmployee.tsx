@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import { AppDispatch, RootState } from '../../store/store';
 import { registerEmployee, reset } from '../../store/slices/authSlice';
+import { toast } from "react-toastify";
 
 export default function RegisterEmployee() {
     const navigate = useNavigate();
@@ -24,11 +25,13 @@ export default function RegisterEmployee() {
 
     useEffect(() => {
         if (isSuccess) {
-            alert(message);
+            // alert(message);
+            toast.success('Đăng ký thành công! Vui lòng đăng nhập.');
             dispatch(reset());
             navigate('/login');
         }
         if (isError) {
+            toast.error(message || 'Đã có lỗi xảy ra!');
             const timer = setTimeout(() => dispatch(reset()), 5000);
             return () => clearTimeout(timer);
         }

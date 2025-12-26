@@ -146,6 +146,23 @@ export const ShiftManagement = () => {
             setIsSubmitting(false);
         }
     };
+    const handleDelete = async (shiftId: string) => {
+        const isConfirmed = await toastService.confirm('Xóa ca làm việc này',
+            'Bạn có chắc chắn muốn xóa ca làm việc này? Hành động này sẽ xóa toàn bộ dữ liệu chi tiết liên quan.',
+            'Xóa',
+            'Hủy');
+        if(isConfirmed) {
+            try {
+                await api.delete(`/shifts/${shiftId}`);
+                toastService.success('Ca làm việc đã được xóa');
+                fetchData();
+            } catch (error) {
+                toastService.error('Không thể xóa ca làm việc');
+            }   
+        }
+    }
+
+
 
     return (
         <div className='p-4 md:p-8 bg-[#F8FAFC] min-h-screen font-sans'>
@@ -187,7 +204,10 @@ export const ShiftManagement = () => {
                                 </div>
                                 <div className='flex gap-1'>
                                     <button onClick={() => handleOpenModal(shift)} className='p-2 text-slate-400 hover:text-blue-600 transition-colors'><Edit size={18} /></button>
-                                    <button onClick={() => { if (window.confirm('Xóa ca này?')) api.delete(`/shifts/${shift._id}`).then(() => fetchData()) }} className='p-2 text-slate-400 hover:text-red-500 transition-colors'><Trash2 size={18} /></button>
+                                    <button onClick={() => handleDelete(shift._id)} 
+
+                                        className='p-2 text-slate-400 hover:text-red-500 transition-colors'>
+                                            <Trash2 size={18} /></button>
                                 </div>
                             </div>
                             <div className='grid grid-cols-2 gap-4 mb-4'>

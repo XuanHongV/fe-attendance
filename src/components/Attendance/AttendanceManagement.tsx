@@ -229,12 +229,12 @@ export const AttendanceManagement: React.FC = () => {
                         <button className='flex items-center gap-1.5 px-3.5 py-2 bg-white border border-transparent rounded-xl text-blue-700 hover:bg-blue-50 transition-all font-bold text-xs shadow-sm'>
                             <Download size={15} /> Báo cáo
                         </button>
-                        <button
+                        {/* <button
                             onClick={() => setIsAddModalOpen(true)}
                             className='bg-emerald-500 text-white px-4 py-2 rounded-xl flex items-center gap-1.5 hover:bg-emerald-600 transition-all font-bold text-xs shadow-md active:scale-95'
                         >
                             <Plus size={16} /> Thêm mới
-                        </button>
+                        </button> */}
                     </div>
                 </div>
 

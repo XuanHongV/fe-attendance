@@ -71,6 +71,26 @@ export const ScheduleManagement = () => {
     assignments: [],
   });
 
+  const handleUpdateOfficeLocation = () => {
+    if (!navigator.geolocation) {
+      return alert("Trình duyệt không hỗ trợ định vị");
+    }
+
+    navigator.geolocation.getCurrentPosition(async (position) => {
+      const { latitude, longitude } = position.coords;
+
+      try {
+        await api.post("/attendance/update-office-location", {
+          lat: latitude,
+          lng: longitude,
+        });
+        alert(`Đã cập nhật vị trí văn phòng: ${latitude}, ${longitude}`);
+      } catch (error) {
+        alert("Cập nhật thất bại");
+      }
+    });
+  };
+
   const [selectedDateForAssign, setSelectedDateForAssign] = useState<
     string | null
   >(null);
@@ -84,7 +104,6 @@ export const ScheduleManagement = () => {
 
   const { user } = useSelector((state: RootState) => state.auth);
   const isAdmin = user?.role === "ADMIN" || user?.role === "MANAGER";
-  // console.log("user", user);
 
   const fetchData = async () => {
     if (!user?._id) return;
@@ -208,17 +227,15 @@ export const ScheduleManagement = () => {
           onClick={() =>
             isAdmin &&
             (setSelectedDateForAssign(dateString),
-            setIsAssignModalOpen(true),
-            fetchAssignData())
+              setIsAssignModalOpen(true),
+              fetchAssignData())
           }
-          className={`min-h-[120px] border-b border-r border-gray-100 p-2 transition-all bg-white relative ${
-            isAdmin ? "cursor-pointer hover:bg-slate-50" : ""
-          } ${isToday ? "bg-blue-50/30" : ""}`}
+          className={`min-h-[120px] border-b border-r border-gray-100 p-2 transition-all bg-white relative ${isAdmin ? "cursor-pointer hover:bg-slate-50" : ""
+            } ${isToday ? "bg-blue-50/30" : ""}`}
         >
           <span
-            className={`text-xs font-bold w-6 h-6 flex items-center justify-center rounded-full mb-2 ${
-              isToday ? "bg-blue-600 text-white shadow-lg" : "text-slate-400"
-            }`}
+            className={`text-xs font-bold w-6 h-6 flex items-center justify-center rounded-full mb-2 ${isToday ? "bg-blue-600 text-white shadow-lg" : "text-slate-400"
+              }`}
           >
             {d}
           </span>
@@ -275,8 +292,15 @@ export const ScheduleManagement = () => {
             <p className="text-slate-500 text-xs font-bold uppercase tracking-widest mt-1 opacity-70">
               Shift Management System v2.0
             </p>
+            {isAdmin && (
+              <button
+                onClick={handleUpdateOfficeLocation}
+                className="mt-3 flex items-center gap-2 px-4 py-2 bg-slate-900 text-white rounded-xl text-xs font-black uppercase tracking-widest hover:bg-blue-600 transition-all shadow-lg shadow-slate-200"
+              >
+                <MapPin size={14} /> Đặt vị trí này làm văn phòng gốc
+              </button>
+            )}
           </div>
-
           <div className="flex flex-col sm:flex-row items-center gap-3 w-full lg:w-auto">
             {viewMode === "list" && (
               <div className="relative w-full sm:w-64">
@@ -296,21 +320,19 @@ export const ScheduleManagement = () => {
             <div className="flex bg-slate-100 p-1 rounded-2xl w-full sm:w-auto">
               <button
                 onClick={() => setViewMode("calendar")}
-                className={`flex-1 sm:flex-none flex items-center justify-center gap-2 px-6 py-2.5 rounded-xl text-sm font-bold transition-all ${
-                  viewMode === "calendar"
-                    ? "bg-white text-blue-600 shadow-sm"
-                    : "text-slate-500"
-                }`}
+                className={`flex-1 sm:flex-none flex items-center justify-center gap-2 px-6 py-2.5 rounded-xl text-sm font-bold transition-all ${viewMode === "calendar"
+                  ? "bg-white text-blue-600 shadow-sm"
+                  : "text-slate-500"
+                  }`}
               >
                 <CalendarIcon size={16} /> Lịch
               </button>
               <button
                 onClick={() => setViewMode("list")}
-                className={`flex-1 sm:flex-none flex items-center justify-center gap-2 px-6 py-2.5 rounded-xl text-sm font-bold transition-all ${
-                  viewMode === "list"
-                    ? "bg-white text-blue-600 shadow-sm"
-                    : "text-slate-500"
-                }`}
+                className={`flex-1 sm:flex-none flex items-center justify-center gap-2 px-6 py-2.5 rounded-xl text-sm font-bold transition-all ${viewMode === "list"
+                  ? "bg-white text-blue-600 shadow-sm"
+                  : "text-slate-500"
+                  }`}
               >
                 <List size={16} /> Danh sách
               </button>
@@ -556,16 +578,9 @@ export const ScheduleManagement = () => {
                 <div className="space-y-6">
                   <section>
                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2 mb-3">
-                      <MapPin size={12} /> Địa điểm & Ghi chú
+                      <MapPin size={12} /> Ghi chú
                     </label>
                     <div className="space-y-4 p-4 bg-orange-50/30 rounded-[2rem] border border-orange-100">
-                      <div className="flex items-start gap-3">
-                        <MapPin size={14} className="text-orange-500 mt-0.5" />
-                        <p className="text-xs font-bold text-slate-700">
-                          {selectedAssignment.location || "Văn phòng chính"}
-                        </p>
-                      </div>
-                      {/* HIỂN THỊ NOTE TỪ BACKEND */}
                       <div className="flex items-start gap-3">
                         <FileText
                           size={14}

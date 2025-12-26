@@ -297,12 +297,12 @@ export const EmployeeManagement: React.FC = () => {
                             Hệ thống quản lý hồ sơ và phân quyền nhân sự
                         </p>
                     </div>
-                    <button
+                    {/* <button
                         onClick={() => handleOpenModal(null)}
                         className='bg-white text-indigo-600 px-4 py-2 rounded-xl hover:bg-indigo-50 transition-all flex items-center gap-2 shadow-md font-bold text-xs uppercase tracking-wider active:scale-95'
                     >
                         <Plus className='h-4 w-4' /> <span>Thêm Nhân viên</span>
-                    </button>
+                    </button> */}
                 </div>
 
                 {/* Toolbar - Nhỏ gọn hơn */}
